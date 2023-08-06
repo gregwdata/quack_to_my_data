@@ -7,7 +7,7 @@ attrs==23.1.0
 blinker==1.6.2
 Brotli==1.0.9
 cachetools==5.3.1
-cchardet==2.1.7
+faust-cchardet==2.1.18
 certifi==2023.5.7
 cffi==1.15.1
 charset-normalizer==3.2.0
