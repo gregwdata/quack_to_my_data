@@ -14,28 +14,61 @@ a16z-infra
 """
 #External libraries:
 import streamlit as st
-import replicate
+#import replicate
+import requests
 from dotenv import load_dotenv
 load_dotenv()
 import os
 from utils import debounce_replicate_run
 from auth0_component import login_button
+import argparse
+
+# parse comamnd line args
+parser = argparse.ArgumentParser()
+parser.add_argument('--noauth', action='store_true', help='turns off auth')
+try:
+    args = parser.parse_args()
+    use_auth = not args.noauth
+except SystemExit as e:
+    # This exception will be raised if --help or invalid command line arguments
+    # are used. Currently streamlit prevents the program from exiting normally
+    # so we have to do a hard exit.
+    os._exit(e.code)
 
 ###Global variables:###
-REPLICATE_API_TOKEN = os.environ.get('REPLICATE_API_TOKEN', default='')
+HUGGINGFACE_API_TOKEN = os.environ.get('HF_TOKEN', default='')
 #Your your (Replicate) models' endpoints:
-REPLICATE_MODEL_ENDPOINT7B = os.environ.get('REPLICATE_MODEL_ENDPOINT7B', default='')
-REPLICATE_MODEL_ENDPOINT13B = os.environ.get('REPLICATE_MODEL_ENDPOINT13B', default='')
-REPLICATE_MODEL_ENDPOINT70B = os.environ.get('REPLICATE_MODEL_ENDPOINT70B', default='')
+#REPLICATE_MODEL_ENDPOINT7B = os.environ.get('REPLICATE_MODEL_ENDPOINT7B', default='')
+#REPLICATE_MODEL_ENDPOINT13B = os.environ.get('REPLICATE_MODEL_ENDPOINT13B', default='')
+#REPLICATE_MODEL_ENDPOINT70B = os.environ.get('REPLICATE_MODEL_ENDPOINT70B', default='')
+HF_MODEL_ENDPOINT_NSQL = r'https://api-inference.huggingface.co/models/NumbersStation/nsql-350M'
+
 PRE_PROMPT = "You are a helpful assistant. You do not respond as 'User' or pretend to be 'User'. You only respond once as Assistant."
 #Auth0 for auth
-AUTH0_CLIENTID = os.environ.get('AUTH0_CLIENTID', default='')
-AUTH0_DOMAIN = os.environ.get('AUTH0_DOMAIN', default='')
+#AUTH0_CLIENTID = os.environ.get('AUTH0_CLIENTID', default='')
+#AUTH0_DOMAIN = os.environ.get('AUTH0_DOMAIN', default='')
 
-if not (REPLICATE_API_TOKEN and REPLICATE_MODEL_ENDPOINT13B and REPLICATE_MODEL_ENDPOINT7B and 
-        AUTH0_CLIENTID and AUTH0_DOMAIN):
+# if not (
+#         REPLICATE_API_TOKEN and
+#         REPLICATE_MODEL_ENDPOINT7B and REPLICATE_MODEL_ENDPOINT13B and REPLICATE_MODEL_ENDPOINT70B and
+#         ((not use_auth) or (AUTH0_CLIENTID and AUTH0_DOMAIN))
+#     ):
+if not (HF_MODEL_ENDPOINT_NSQL):
     st.warning("Add a `.env` file to your app directory with the keys specified in `.env_template` to continue.")
     st.stop()
+
+###Method for querying HuggingFace
+def HF_query(payload_text,API_URL):
+    payload = {
+	"inputs": payload_text}
+    headers = {'Authorization': f'Bearer {HUGGINGFACE_API_TOKEN}'}
+    response = requests.post(API_URL, headers=headers, json=payload)
+    print(response.json())
+    response_json = response.json()
+    if not (type(response_json) == list):
+        response_json = {'response':f'The HuggingFace model is currently loading. Estimated time remaining: {response_json["estimated_time"]:.2f} \nPlease wait that long, clear history, and try again.'}
+    return response_json
+
 
 ###Initial UI configuration:###
 st.set_page_config(page_title="LLaMA2 Chatbot by a16z-infra", page_icon="🦙", layout="wide")
@@ -72,7 +105,8 @@ def render_app():
         st.session_state['chat_dialogue'] = []
     if 'llm' not in st.session_state:
         #st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT13B
-        st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT70B
+        #st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT70B
+        st.session_state['llm'] = HF_MODEL_ENDPOINT_NSQL
     if 'temperature' not in st.session_state:
         st.session_state['temperature'] = 0.1
     if 'top_p' not in st.session_state:
@@ -86,12 +120,12 @@ def render_app():
 
     #Dropdown menu to select the model edpoint:
     selected_option = st.sidebar.selectbox('Choose a LLaMA2 model:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B'], key='model')
-    if selected_option == 'LLaMA2-7B':
-        st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT7B
-    elif selected_option == 'LLaMA2-13B':
-        st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT13B
-    else:
-        st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT70B
+    # if selected_option == 'LLaMA2-7B':
+    #     st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT7B
+    # elif selected_option == 'LLaMA2-13B':
+    #     st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT13B
+    # else:
+    #     st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT70B
     #Model hyper parameters:
     st.session_state['temperature'] = st.sidebar.slider('Temperature:', min_value=0.01, max_value=5.0, value=0.1, step=0.01)
     st.session_state['top_p'] = st.sidebar.slider('Top P:', min_value=0.01, max_value=1.0, value=0.9, step=0.01)
@@ -115,9 +149,10 @@ def render_app():
     # add logout button
     def logout():
         del st.session_state['user_info']
-    logout_button = btn_col2.button("Logout",
-                                use_container_width=True,
-                                on_click=logout)
+    if use_auth:
+        logout_button = btn_col2.button("Logout",
+                                    use_container_width=True,
+                                    on_click=logout)
         
     # add links to relevant resources for users to select
     st.sidebar.write(" ")
@@ -166,7 +201,8 @@ def render_app():
                 else:
                     string_dialogue = string_dialogue + "Assistant: " + dict_message["content"] + "\n\n"
             print (string_dialogue)
-            output = debounce_replicate_run(st.session_state['llm'], string_dialogue + "Assistant: ",  st.session_state['max_seq_len'], st.session_state['temperature'], st.session_state['top_p'], REPLICATE_API_TOKEN)
+            #output = debounce_replicate_run(st.session_state['llm'], string_dialogue + "Assistant: ",  st.session_state['max_seq_len'], st.session_state['temperature'], st.session_state['top_p'], REPLICATE_API_TOKEN)
+            output = HF_query(string_dialogue + "Assistant: ",st.session_state['llm']) 
             for item in output:
                 full_response += item
                 message_placeholder.markdown(full_response + "▌")
@@ -175,7 +211,7 @@ def render_app():
         st.session_state.chat_dialogue.append({"role": "assistant", "content": full_response})
 
 
-if 'user_info' in st.session_state:
+if 'user_info' in st.session_state or (not use_auth):
 # if user_info:
     render_app()
 else:
