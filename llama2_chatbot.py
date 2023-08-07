@@ -21,6 +21,9 @@ import os
 from utils import debounce_replicate_run
 from auth0_component import login_button
 import argparse
+import duckdb
+from prompt_tools import get_table_details, list_table_schemas, set_instructions, \
+    generate_preprompt, response_options
 
 # parse comamnd line args
 parser = argparse.ArgumentParser()
@@ -41,6 +44,7 @@ REPLICATE_API_TOKEN = os.environ.get('REPLICATE_API_TOKEN', default='')
 REPLICATE_MODEL_ENDPOINT7B = os.environ.get('REPLICATE_MODEL_ENDPOINT7B', default='')
 REPLICATE_MODEL_ENDPOINT13B = os.environ.get('REPLICATE_MODEL_ENDPOINT13B', default='')
 REPLICATE_MODEL_ENDPOINT70B = os.environ.get('REPLICATE_MODEL_ENDPOINT70B', default='')
+DB_TPCH = r'./db_files/tpch/tpch.duckdb'
 PRE_PROMPT = "You are a helpful assistant. You do not respond as 'User' or pretend to be 'User'. You only respond once as Assistant."
 #Auth0 for auth
 AUTH0_CLIENTID = os.environ.get('AUTH0_CLIENTID', default='')
@@ -55,7 +59,7 @@ if not (
     st.stop()
 
 ###Initial UI configuration:###
-st.set_page_config(page_title="LLaMA2 Chatbot by a16z-infra", page_icon="🦙", layout="wide")
+st.set_page_config(page_title="Quack to my data", page_icon="🦆", layout="wide")
 
 def render_app():
 
@@ -96,12 +100,14 @@ def render_app():
         st.session_state['top_p'] = 0.9
     if 'max_seq_len' not in st.session_state:
         st.session_state['max_seq_len'] = 512
-    if 'pre_prompt' not in st.session_state:
-        st.session_state['pre_prompt'] = PRE_PROMPT
     if 'string_dialogue' not in st.session_state:
         st.session_state['string_dialogue'] = ''
+    if 'db' not in st.session_state:
+        st.session_state['db'] = duckdb.connect(DB_TPCH)
+    if 'pre_prompt' not in st.session_state:
+        st.session_state['pre_prompt'] = generate_preprompt(st.session_state['db'])
 
-    #Dropdown menu to select the model edpoint:
+    #Dropdown menu to select the model endpoint:
     selected_option = st.sidebar.selectbox('Choose a LLaMA2 model:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B'], key='model')
     if selected_option == 'LLaMA2-7B':
         st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT7B
@@ -114,11 +120,21 @@ def render_app():
     st.session_state['top_p'] = st.sidebar.slider('Top P:', min_value=0.01, max_value=1.0, value=0.9, step=0.01)
     st.session_state['max_seq_len'] = st.sidebar.slider('Max Sequence Length:', min_value=64, max_value=4096, value=2048, step=8)
 
-    NEW_P = st.sidebar.text_area('Prompt before the chat starts. Edit here if desired:', PRE_PROMPT, height=60)
-    if NEW_P != PRE_PROMPT and NEW_P != "" and NEW_P != None:
-        st.session_state['pre_prompt'] = NEW_P + "\n\n"
+    # NEW_P = st.sidebar.text_area('Prompt before the chat starts. Edit here if desired:', PRE_PROMPT, height=60)
+    # if NEW_P != PRE_PROMPT and NEW_P != "" and NEW_P != None:
+    #     st.session_state['pre_prompt'] = NEW_P + "\n\n"
+    # else:
+    #     st.session_state['pre_prompt'] = PRE_PROMPT
+
+    #Dropdown menu to select a dataset
+    selected_db = st.sidebar.selectbox('Choose a Database:', ['TPC-H'], key='db_dropdown')
+    if selected_option == 'TPC-H':
+        st.session_state['db'] = duckdb.connect(DB_TPCH)
+        # update the prompt based on the selected DB:
+        st.session_state['pre_prompt'] = generate_preprompt(st.session_state['db'])
     else:
-        st.session_state['pre_prompt'] = PRE_PROMPT
+        st.session_state['db'] = duckdb.connect(DB_TPCH)
+        st.session_state['pre_prompt'] = generate_preprompt(st.session_state['db'])
 
     btn_col1, btn_col2 = st.sidebar.columns(2)
 
@@ -180,7 +196,7 @@ def render_app():
             string_dialogue = st.session_state['pre_prompt']
             for dict_message in st.session_state.chat_dialogue:
                 if dict_message["role"] == "user":
-                    string_dialogue = string_dialogue + "User: " + dict_message["content"] + "\n\n"
+                    string_dialogue = string_dialogue + "\n" + response_options() + "User: " + dict_message["content"] + "\n\n" 
                 else:
                     string_dialogue = string_dialogue + "Assistant: " + dict_message["content"] + "\n\n"
             print (string_dialogue)
