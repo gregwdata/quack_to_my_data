@@ -23,7 +23,7 @@ from auth0_component import login_button
 import argparse
 import duckdb
 from prompt_tools import get_table_details, list_table_schemas, set_instructions, \
-    generate_preprompt, response_options
+    generate_preprompt, response_options, generate_system_prompt
 
 # parse comamnd line args
 parser = argparse.ArgumentParser()
@@ -106,6 +106,8 @@ def render_app():
         st.session_state['db'] = duckdb.connect(DB_TPCH)
     if 'pre_prompt' not in st.session_state:
         st.session_state['pre_prompt'] = generate_preprompt(st.session_state['db'])
+    if 'system_prompt' not in st.session_state:
+        st.session_state['system_prompt'] = generate_system_prompt()
 
     #Dropdown menu to select the model endpoint:
     selected_option = st.sidebar.selectbox('Choose a LLaMA2 model:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B'], key='model')
@@ -196,11 +198,11 @@ def render_app():
             string_dialogue = st.session_state['pre_prompt']
             for dict_message in st.session_state.chat_dialogue:
                 if dict_message["role"] == "user":
-                    string_dialogue = string_dialogue + "\n" + response_options() + "User: " + dict_message["content"] + "\n\n" 
+                    string_dialogue = string_dialogue + "User: " + dict_message["content"] + "\n\n" 
                 else:
                     string_dialogue = string_dialogue + "Assistant: " + dict_message["content"] + "\n\n"
             print (string_dialogue)
-            output = debounce_replicate_run(st.session_state['llm'], string_dialogue + "Assistant: ",  st.session_state['max_seq_len'], st.session_state['temperature'], st.session_state['top_p'], REPLICATE_API_TOKEN)
+            output = debounce_replicate_run(st.session_state['llm'], string_dialogue + "Assistant: ",  st.session_state['max_seq_len'], st.session_state['temperature'], st.session_state['top_p'], st.session_state['system_prompt'], REPLICATE_API_TOKEN)
             for item in output:
                 full_response += item
                 message_placeholder.markdown(full_response + "▌")

@@ -5,7 +5,7 @@ import time
 last_call_time = 0
 debounce_interval = 2  # Set the debounce interval (in seconds) to your desired value
 
-def debounce_replicate_run(llm, prompt, max_len, temperature, top_p, API_TOKEN):
+def debounce_replicate_run(llm, prompt, max_len, temperature, top_p, system_prompt, API_TOKEN):
     global last_call_time
     print("last call time: ", last_call_time)
 
@@ -24,5 +24,5 @@ def debounce_replicate_run(llm, prompt, max_len, temperature, top_p, API_TOKEN):
     # Update the last call time to the current time
     last_call_time = time.time()
     
-    output = replicate.run(llm, input={"prompt": prompt, "max_length": max_len, "temperature": temperature, "top_p": top_p, "repetition_penalty": 1}, api_token=API_TOKEN)
+    output = replicate.run(llm, input={"prompt": prompt, "system_prompt":system_prompt, "max_length": max_len, "temperature": temperature, "top_p": top_p, "repetition_penalty": 1}, api_token=API_TOKEN)
     return output
