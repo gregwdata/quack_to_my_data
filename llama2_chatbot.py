@@ -215,7 +215,7 @@ def render_app():
             print (string_dialogue)
             #output = debounce_replicate_run(st.session_state['llm'], string_dialogue + "Assistant: ",  st.session_state['max_seq_len'], st.session_state['temperature'], st.session_state['top_p'], st.session_state['system_prompt'], REPLICATE_API_TOKEN)
             llm = Replicate(model=st.session_state['llm'],
-                            input={"temperature": st.session_state['temperature'], "max_length": st.session_state['max_seq_len'], "top_p": st.session_state['top_p']},
+                            input={"temperature": st.session_state['temperature'], "max_length": st.session_state['max_seq_len'], "top_p": st.session_state['top_p'], "system_prompt":''},
                             )
             db = SQLDatabase.from_uri(f"duckdb:///{st.session_state['db']}")
             toolkit = SQLDatabaseToolkit(db=db, llm = llm)
