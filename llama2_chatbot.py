@@ -33,6 +33,7 @@ from langchain.sql_database import SQLDatabase
 from langchain.llms.openai import OpenAI
 from langchain.agents import AgentExecutor
 from langchain.agents.agent_types import AgentType
+from langchain.callbacks import StreamlitCallbackHandler, LLMThoughtLabeler
 
 # parse comamnd line args
 parser = argparse.ArgumentParser()
@@ -215,7 +216,8 @@ def render_app():
             print (string_dialogue)
             #output = debounce_replicate_run(st.session_state['llm'], string_dialogue + "Assistant: ",  st.session_state['max_seq_len'], st.session_state['temperature'], st.session_state['top_p'], st.session_state['system_prompt'], REPLICATE_API_TOKEN)
             llm = Replicate(model=st.session_state['llm'],
-                            input={"temperature": st.session_state['temperature'], "max_length": st.session_state['max_seq_len'], "top_p": st.session_state['top_p'], "system_prompt":''},
+                            input={"temperature": st.session_state['temperature'], "max_length": st.session_state['max_seq_len'], "top_p": st.session_state['top_p'], 
+                                   "system_prompt":"",} #'You are a smart and effective Data Engineer. Your customers come to you with questions about their data, and you will do your best to answer these questions. If answering the question requires a JOIN, make sure you check the schemas of the tables you are joining and use valid columns in the join. Be aware that sometimes a JOIN requires a third table that establishes a link between two entities. DO NOT perform JOINs unless strictly necessary.'},
                             )
             db = SQLDatabase.from_uri(f"duckdb:///{st.session_state['db']}")
             toolkit = SQLDatabaseToolkit(db=db, llm = llm)
@@ -225,14 +227,11 @@ def render_app():
                 verbose=True,
                 agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
             )
-            output = agent_executor.run(dict_message["content"])
-            print(output)
-            for item in output:
-                full_response += item
-                message_placeholder.markdown(full_response + "▌")
-            message_placeholder.markdown(full_response)
-        # Add assistant response to chat history
-        st.session_state.chat_dialogue.append({"role": "assistant", "content": full_response})
+            st_cb = StreamlitCallbackHandler(st.container(),collapse_completed_thoughts=True,thought_labeler=LLMThoughtLabeler())
+            output = agent_executor.run(dict_message["content"],callbacks=[st_cb])
+            st.session_state.chat_dialogue.append({"role": "assistant", "content": output})
+            st.markdown(output)
+        print(f'Output of langchain: {output}')
 
 
 if 'user_info' in st.session_state or (not use_auth):
