@@ -25,6 +25,15 @@ import duckdb
 from prompt_tools import get_table_details, list_table_schemas, set_instructions, \
     generate_preprompt, response_options, generate_system_prompt
 
+from langchain.llms import Replicate
+
+from langchain.agents import create_sql_agent
+from langchain.agents.agent_toolkits import SQLDatabaseToolkit
+from langchain.sql_database import SQLDatabase
+from langchain.llms.openai import OpenAI
+from langchain.agents import AgentExecutor
+from langchain.agents.agent_types import AgentType
+
 # parse comamnd line args
 parser = argparse.ArgumentParser()
 parser.add_argument('--noauth', action='store_true', help='turns off auth')
@@ -103,9 +112,9 @@ def render_app():
     if 'string_dialogue' not in st.session_state:
         st.session_state['string_dialogue'] = ''
     if 'db' not in st.session_state:
-        st.session_state['db'] = duckdb.connect(DB_TPCH)
+        st.session_state['db'] = DB_TPCH
     if 'pre_prompt' not in st.session_state:
-        st.session_state['pre_prompt'] = generate_preprompt(st.session_state['db'])
+        st.session_state['pre_prompt'] = "" #generate_preprompt(st.session_state['db'])
     if 'system_prompt' not in st.session_state:
         st.session_state['system_prompt'] = generate_system_prompt()
 
@@ -131,12 +140,14 @@ def render_app():
     #Dropdown menu to select a dataset
     selected_db = st.sidebar.selectbox('Choose a Database:', ['TPC-H'], key='db_dropdown')
     if selected_option == 'TPC-H':
-        st.session_state['db'] = duckdb.connect(DB_TPCH)
+        # st.session_state['db'] = duckdb.connect(DB_TPCH)
         # update the prompt based on the selected DB:
-        st.session_state['pre_prompt'] = generate_preprompt(st.session_state['db'])
+        #st.session_state['pre_prompt'] = generate_preprompt(st.session_state['db'])
+        st.session_state['db'] = DB_TPCH
     else:
-        st.session_state['db'] = duckdb.connect(DB_TPCH)
-        st.session_state['pre_prompt'] = generate_preprompt(st.session_state['db'])
+        #st.session_state['db'] = duckdb.connect(DB_TPCH)
+        #st.session_state['pre_prompt'] = generate_preprompt(st.session_state['db'])
+        st.session_state['db'] = DB_TPCH
 
     btn_col1, btn_col2 = st.sidebar.columns(2)
 
@@ -202,7 +213,20 @@ def render_app():
                 else:
                     string_dialogue = string_dialogue + "Assistant: " + dict_message["content"] + "\n\n"
             print (string_dialogue)
-            output = debounce_replicate_run(st.session_state['llm'], string_dialogue + "Assistant: ",  st.session_state['max_seq_len'], st.session_state['temperature'], st.session_state['top_p'], st.session_state['system_prompt'], REPLICATE_API_TOKEN)
+            #output = debounce_replicate_run(st.session_state['llm'], string_dialogue + "Assistant: ",  st.session_state['max_seq_len'], st.session_state['temperature'], st.session_state['top_p'], st.session_state['system_prompt'], REPLICATE_API_TOKEN)
+            llm = Replicate(model=st.session_state['llm'],
+                            input={"temperature": st.session_state['temperature'], "max_length": st.session_state['max_seq_len'], "top_p": st.session_state['top_p']},
+                            )
+            db = SQLDatabase.from_uri(f"duckdb:///{st.session_state['db']}")
+            toolkit = SQLDatabaseToolkit(db=db, llm = llm)
+            agent_executor = create_sql_agent(
+                llm=llm,
+                toolkit=toolkit,
+                verbose=True,
+                agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+            )
+            output = agent_executor.run(dict_message["content"])
+            print(output)
             for item in output:
                 full_response += item
                 message_placeholder.markdown(full_response + "▌")
