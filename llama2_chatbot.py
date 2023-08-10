@@ -343,11 +343,11 @@ def render_app():
             #output = debounce_replicate_run(st.session_state['llm'], string_dialogue + "Assistant: ",  st.session_state['max_seq_len'], st.session_state['temperature'], st.session_state['top_p'], st.session_state['system_prompt'], REPLICATE_API_TOKEN)
             llm = Replicate(model=st.session_state['llm'],
                             input={"temperature": st.session_state['temperature'], "max_length": st.session_state['max_seq_len'], "top_p": st.session_state['top_p'], 
-                                   "system_prompt":"""You are an agent designed to interact with a SQL database.
-Given an input question, create a syntactically correct SQL query to run, then look at the results of the query and return the answer.
-Unless the user specifies a specific number of examples they wish to obtain, always limit your query to at most 10 results.
-You can order the results by a relevant column to return the most interesting examples in the database.
-Never query for all the columns from a specific table, only ask for the relevant columns given the question.""", #'You are a smart and effective Data Engineer. Your customers come to you with questions about their data, and you will do your best to answer these questions. If answering the question requires a JOIN, make sure you check the schemas of the tables you are joining and use valid columns in the join. Be aware that sometimes a JOIN requires a third table that establishes a link between two entities. DO NOT perform JOINs unless strictly necessary.'},
+#                                    "system_prompt":"""You are an agent designed to interact with a SQL database.
+# Given an input question, create a syntactically correct SQL query to run, then look at the results of the query and return the answer.
+# Unless the user specifies a specific number of examples they wish to obtain, always limit your query to at most 10 results.
+# You can order the results by a relevant column to return the most interesting examples in the database.
+# Never query for all the columns from a specific table, only ask for the relevant columns given the question.""", #'You are a smart and effective Data Engineer. Your customers come to you with questions about their data, and you will do your best to answer these questions. If answering the question requires a JOIN, make sure you check the schemas of the tables you are joining and use valid columns in the join. Be aware that sometimes a JOIN requires a third table that establishes a link between two entities. DO NOT perform JOINs unless strictly necessary.'},
                                     "return_full_text":False, #needed for replit
                                     }
                             )
