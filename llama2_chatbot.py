@@ -34,6 +34,126 @@ from langchain.llms.openai import OpenAI
 from langchain.agents import AgentExecutor
 from langchain.agents.agent_types import AgentType
 from langchain.callbacks import StreamlitCallbackHandler, LLMThoughtLabeler
+from langchain.tools import BaseTool
+from langchain.tools.sql_database.tool import (
+    #InfoSQLDatabaseTool,
+    ListSQLDatabaseTool,
+    QuerySQLCheckerTool,
+    QuerySQLDataBaseTool,
+    BaseSQLDatabaseTool,
+)
+from langchain.callbacks.manager import (
+    CallbackManagerForToolRun,
+)
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.engine import Engine
+from sqlalchemy import MetaData, Table, create_engine, inspect, select, text
+from typing import Any, Dict, Optional, List
+
+#### subclass SQLDatabase so we can modify some of the behavior
+class PatchedSQLDatabase(SQLDatabase):
+    def __init__(
+        self,
+        engine: Engine,
+        schema: Optional[str] = None,
+        metadata: Optional[MetaData] = None,
+        ignore_tables: Optional[List[str]] = None,
+        include_tables: Optional[List[str]] = None,
+        sample_rows_in_table_info: int = 3,
+        indexes_in_table_info: bool = False,
+        custom_table_info: Optional[dict] = None,
+        view_support: bool = False,
+        max_string_length: int = 300,
+    ):
+        super().__init__(
+        engine,
+        schema,
+        metadata,
+        ignore_tables,
+        include_tables,
+        sample_rows_in_table_info,
+        indexes_in_table_info,
+        custom_table_info,
+        view_support,
+        max_string_length)
+
+    # Patch this method to clean up commands that the LLM returns wrapped in quotes
+    def run_no_throw(self, command: str, fetch: str = "all") -> str:
+        """Execute a SQL command and return a string representing the results.
+
+        If the statement returns rows, a string of the results is returned.
+        If the statement returns no rows, an empty string is returned.
+
+        If the statement throws an error, the error message is returned.
+        """
+        try:
+            command = command.strip().strip("'").strip('"')
+            return self.run(command, fetch)
+        except SQLAlchemyError as e:
+            """Format the error message"""
+            return f"Error: {e}"
+        
+#### Subclass SQLDatabaseToolkit so we can reload one of its tools in modified state
+class InfoSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
+    """Tool for getting metadata about a SQL database."""
+
+    name = "sql_db_schema"
+    description = """
+    Input to this tool is a comma-separated list of tables, output is the schema and sample rows for those tables.    
+
+    Example Input: "table1, table2, table3"
+    """
+
+    def _run(
+        self,
+        table_names: str,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        """Get the schema for tables in a comma-separated list."""
+        return self.db.get_table_info_no_throw([x.strip().strip("'").strip('"') for x in table_names.split(",")])
+    
+class PatchedSQLDatabaseToolkit(SQLDatabaseToolkit):
+    def __init__(self,db,llm):
+        super().__init__(db=db,llm=llm)
+
+    def get_tools(self) -> List[BaseTool]:
+        """Get the tools in the toolkit."""
+        list_sql_database_tool = ListSQLDatabaseTool(db=self.db)
+        info_sql_database_tool_description = (
+            "Input to this tool is a comma-separated list of tables, output is the "
+            "schema and sample rows for those tables. "
+            "Be sure that the tables actually exist by calling "
+            f"{list_sql_database_tool.name} first! "
+            "Example Input: 'table1, table2, table3'"
+        )
+        info_sql_database_tool = InfoSQLDatabaseTool(
+            db=self.db, description=info_sql_database_tool_description
+        )
+        query_sql_database_tool_description = (
+            "Input to this tool is a detailed and correct SQL query, output is a "
+            "result from the database. If the query is not correct, an error message "
+            "will be returned. If an error is returned, rewrite the query, check the "
+            "query, and try again. If you encounter an issue with Unknown column "
+            f"'xxxx' in 'field list', using {info_sql_database_tool.name} "
+            "to query the correct table fields."
+        )
+        query_sql_database_tool = QuerySQLDataBaseTool(
+            db=self.db, description=query_sql_database_tool_description
+        )
+        query_sql_checker_tool_description = (
+            "Use this tool to double check if your query is correct before executing "
+            "it. Always use this tool before executing a query with "
+            f"{query_sql_database_tool.name}!"
+        )
+        query_sql_checker_tool = QuerySQLCheckerTool(
+            db=self.db, llm=self.llm, description=query_sql_checker_tool_description
+        )
+        return [
+            query_sql_database_tool,
+            info_sql_database_tool,
+            list_sql_database_tool,
+            query_sql_checker_tool,
+        ]
 
 # parse comamnd line args
 parser = argparse.ArgumentParser()
@@ -54,6 +174,8 @@ REPLICATE_API_TOKEN = os.environ.get('REPLICATE_API_TOKEN', default='')
 REPLICATE_MODEL_ENDPOINT7B = os.environ.get('REPLICATE_MODEL_ENDPOINT7B', default='')
 REPLICATE_MODEL_ENDPOINT13B = os.environ.get('REPLICATE_MODEL_ENDPOINT13B', default='')
 REPLICATE_MODEL_ENDPOINT70B = os.environ.get('REPLICATE_MODEL_ENDPOINT70B', default='')
+REPLICATE_MODEL_ENDPOINTWIZ = os.environ.get('REPLICATE_MODEL_ENDPOINTWIZ', default='')
+REPLICATE_MODEL_ENDPOINTREPLIT = os.environ.get('REPLICATE_MODEL_ENDPOINTREPLIT', default='')
 DB_TPCH = r'./db_files/tpch/tpch.duckdb'
 PRE_PROMPT = "You are a helpful assistant. You do not respond as 'User' or pretend to be 'User'. You only respond once as Assistant."
 #Auth0 for auth
@@ -120,11 +242,15 @@ def render_app():
         st.session_state['system_prompt'] = generate_system_prompt()
 
     #Dropdown menu to select the model endpoint:
-    selected_option = st.sidebar.selectbox('Choose a LLaMA2 model:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B'], key='model')
+    selected_option = st.sidebar.selectbox('Choose a LLaMA2 model:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B','REPLIT','wizard-coder-15b-v1.0'], key='model')
     if selected_option == 'LLaMA2-7B':
         st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT7B
     elif selected_option == 'LLaMA2-13B':
         st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT13B
+    elif selected_option == 'wizard-coder-15b-v1.0':
+        st.session_state['llm'] = REPLICATE_MODEL_ENDPOINTWIZ
+    elif selected_option == 'REPLIT':
+        st.session_state['llm'] = REPLICATE_MODEL_ENDPOINTREPLIT
     else:
         st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT70B
     #Model hyper parameters:
@@ -217,10 +343,16 @@ def render_app():
             #output = debounce_replicate_run(st.session_state['llm'], string_dialogue + "Assistant: ",  st.session_state['max_seq_len'], st.session_state['temperature'], st.session_state['top_p'], st.session_state['system_prompt'], REPLICATE_API_TOKEN)
             llm = Replicate(model=st.session_state['llm'],
                             input={"temperature": st.session_state['temperature'], "max_length": st.session_state['max_seq_len'], "top_p": st.session_state['top_p'], 
-                                   "system_prompt":"",} #'You are a smart and effective Data Engineer. Your customers come to you with questions about their data, and you will do your best to answer these questions. If answering the question requires a JOIN, make sure you check the schemas of the tables you are joining and use valid columns in the join. Be aware that sometimes a JOIN requires a third table that establishes a link between two entities. DO NOT perform JOINs unless strictly necessary.'},
+                                   "system_prompt":"""You are an agent designed to interact with a SQL database.
+Given an input question, create a syntactically correct SQL query to run, then look at the results of the query and return the answer.
+Unless the user specifies a specific number of examples they wish to obtain, always limit your query to at most 10 results.
+You can order the results by a relevant column to return the most interesting examples in the database.
+Never query for all the columns from a specific table, only ask for the relevant columns given the question.""", #'You are a smart and effective Data Engineer. Your customers come to you with questions about their data, and you will do your best to answer these questions. If answering the question requires a JOIN, make sure you check the schemas of the tables you are joining and use valid columns in the join. Be aware that sometimes a JOIN requires a third table that establishes a link between two entities. DO NOT perform JOINs unless strictly necessary.'},
+                                    "return_full_text":False, #needed for replit
+                                    }
                             )
-            db = SQLDatabase.from_uri(f"duckdb:///{st.session_state['db']}")
-            toolkit = SQLDatabaseToolkit(db=db, llm = llm)
+            db = PatchedSQLDatabase.from_uri(f"duckdb:///{st.session_state['db']}")
+            toolkit = PatchedSQLDatabaseToolkit(db=db, llm = llm)
             agent_executor = create_sql_agent(
                 llm=llm,
                 toolkit=toolkit,
