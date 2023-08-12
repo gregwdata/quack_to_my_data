@@ -26,12 +26,12 @@ from prompt_tools import get_table_details, list_table_schemas, set_instructions
     generate_preprompt, response_options, generate_system_prompt
 
 from langchain.llms import Replicate
-
+from langchain_experimental.sql import SQLDatabaseChain
 from langchain.agents import create_sql_agent
 from langchain.agents.agent_toolkits import SQLDatabaseToolkit
 from langchain.sql_database import SQLDatabase
 from langchain.llms.openai import OpenAI
-from langchain.agents import AgentExecutor
+from langchain.agents import AgentExecutor, Tool, load_tools, initialize_agent
 from langchain.agents.agent_types import AgentType
 from langchain.callbacks import StreamlitCallbackHandler, LLMThoughtLabeler
 from langchain.tools import BaseTool
@@ -49,6 +49,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.engine import Engine
 from sqlalchemy import MetaData, Table, create_engine, inspect, select, text
 from typing import Any, Dict, Optional, List
+
+from langchain.chains import create_sql_query_chain
+
+from custom_agent import initialize_custom_agent, CustomSQLDatabaseChain
 
 #### subclass SQLDatabase so we can modify some of the behavior
 class PatchedSQLDatabase(SQLDatabase):
@@ -348,19 +352,37 @@ def render_app():
 # Unless the user specifies a specific number of examples they wish to obtain, always limit your query to at most 10 results.
 # You can order the results by a relevant column to return the most interesting examples in the database.
 # Never query for all the columns from a specific table, only ask for the relevant columns given the question.""", #'You are a smart and effective Data Engineer. Your customers come to you with questions about their data, and you will do your best to answer these questions. If answering the question requires a JOIN, make sure you check the schemas of the tables you are joining and use valid columns in the join. Be aware that sometimes a JOIN requires a third table that establishes a link between two entities. DO NOT perform JOINs unless strictly necessary.'},
+                                    "system_prompt":"""You are a helpful agent. You will be presented with a series of questions from a user, whom you
+want to give the most accurate answer possible. You will either be given a list of tools that you can choose from or you will be given a set of instructions for
+using one of the tools.
+
+DO NOT return a final answer until you have gotten the information you need from an "observation". When you do provide a final answer make sure
+that you start it with the keywords "Final Answer:".
+
+DO NOT write a SQL query unless specifically instructed to.""",
                                     "return_full_text":False, #needed for replit
                                     }
                             )
             db = PatchedSQLDatabase.from_uri(f"duckdb:///{st.session_state['db']}")
             toolkit = PatchedSQLDatabaseToolkit(db=db, llm = llm)
-            agent_executor = create_sql_agent(
-                llm=llm,
-                toolkit=toolkit,
-                verbose=True,
-                agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-            )
+
             st_cb = StreamlitCallbackHandler(st.container(),collapse_completed_thoughts=True,thought_labeler=LLMThoughtLabeler())
-            output = agent_executor.run(dict_message["content"],callbacks=[st_cb])
+            sqlchain = CustomSQLDatabaseChain.from_llm(llm=llm,db=db,verbose=True,user_question=dict_message["content"])
+            sql_tool = Tool(name="Database",
+                            func=sqlchain.run,
+                            description='The user''s data is stored here. Use this to get their data any time it is relevant to their question.',
+                            )
+            tools = load_tools(['llm-math'],llm=llm)
+            tools.append(sql_tool)
+            # agent_executor = initialize_agent(
+            #     llm=llm,
+            #     tools=tools,
+            #     verbose=True,
+            #     agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+            # )
+            agent = initialize_custom_agent(llm=llm,tools=tools)
+            agent_executor = AgentExecutor.from_agent_and_tools(agent=agent, tools=tools, verbose=True)
+            output = agent_executor.run(input=dict_message["content"],callbacks=[st_cb],return_intermediate_steps = True)
             st.session_state.chat_dialogue.append({"role": "assistant", "content": output})
             st.markdown(output)
         print(f'Output of langchain: {output}')
