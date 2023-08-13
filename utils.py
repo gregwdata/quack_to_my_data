@@ -1,5 +1,6 @@
 import replicate
 import time
+import re
 
 # Initialize debounce variables
 last_call_time = 0
@@ -26,3 +27,73 @@ def debounce_replicate_run(llm, prompt, max_len, temperature, top_p, system_prom
     
     output = replicate.run(llm, input={"prompt": prompt, "system_prompt":system_prompt, "max_length": max_len, "temperature": temperature, "top_p": top_p, "repetition_penalty": 1}, api_token=API_TOKEN)
     return output
+
+def get_llm_model_version(llm):
+    llm_parts = llm.split(':')
+    model = replicate.models.get(llm_parts[0])
+    version = model.versions.get(llm_parts[1])
+    return version
+
+def check_for_stop_conditions(output):
+    """Check for conditions that mean we got the output we wanted, and
+       we can stop the model run. 
+
+       If stop condition found, return the index at which to cutoff the output text.
+
+       If no stop condition met, return None
+       """
+    
+    stop_index = None
+
+
+    # check if we have created a complete SQL query
+    # Llama2-70B appears to always put a ; at the end
+    # TODO - handle case where valid semicolon is part of query
+    if re.search('Query:(.+);',output,re.IGNORECASE | re.DOTALL): #dotall needed in case query is multiline
+        print('Complete SQL query detected. Stopping prediction...')
+        stop_index = re.search('Query:(.+);',output,re.IGNORECASE | re.DOTALL).end()
+        return stop_index
+
+    # if the llm starts hallucinating, it may print "User:" as the beginning of the hallucinated phase of conversation
+    if re.search(r'(?<!Ask )User:',output,re.IGNORECASE):
+        print('Hallucination detected. Stopping prediction...')
+        stop_index = re.search('(?<!Ask )User:',output,re.IGNORECASE).start()
+        return stop_index
+
+    
+    # check for the '/End' flag
+    # keep this one last so that one of the more specialized conditions above can be triggered if
+    # there is small additional output between one of those conditions ocurring and the final /End,
+    # such that they both are satisfied within the same batch of tokens
+    if re.search('/End',output,re.IGNORECASE):
+        print('"/End" detected. Stopping prediction...')
+        stop_index = re.search('/End',output,re.IGNORECASE).start()
+        return stop_index
+    
+    return stop_index
+
+def choose_next_action(output):
+    action = None
+    action_input = None
+
+    if re.search('Query:',output,re.IGNORECASE):
+        query_text = output[re.search('Query:',output,re.IGNORECASE).end():]
+        action = 'query'
+        action_input = query_text.replace('```','') # strip the markdown code formatting backticks
+        return action, action_input
+    
+    return action, action_input
+    
+def query_manager(db,query):
+    "Return raw and markdown-formatted query results"
+    df = db.sql(query).df()
+
+    # if df.shape[0] > 20:
+    #     string_out = df.head(7).to_string(index=False) + df.tail(7).to_string(index=False,headers=False)
+
+    if df.shape[0] > 20:
+        md_out = df.head(7).to_markdown(index=False) + '...\n' + df.tail(7).to_markdown(index=False,headers=False)
+    else:
+        md_out = df.to_markdown(index=False)
+
+    return df.to_string(index=False,max_rows=20,min_rows=14), md_out

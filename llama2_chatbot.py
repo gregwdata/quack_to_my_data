@@ -18,13 +18,14 @@ import replicate
 from dotenv import load_dotenv
 load_dotenv()
 import os
-from utils import debounce_replicate_run
+from utils import debounce_replicate_run, get_llm_model_version, check_for_stop_conditions, \
+    choose_next_action, query_manager
 from auth0_component import login_button
 import argparse
 import duckdb
 from prompt_tools import get_table_details, list_table_schemas, set_instructions, \
     generate_preprompt, response_options, generate_system_prompt
-
+import re
 # parse comamnd line args
 parser = argparse.ArgumentParser()
 parser.add_argument('--noauth', action='store_true', help='turns off auth')
@@ -192,23 +193,41 @@ def render_app():
         with st.chat_message("user"):
             st.markdown(prompt)
         
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            full_response = ""
-            string_dialogue = st.session_state['pre_prompt']
-            for dict_message in st.session_state.chat_dialogue:
-                if dict_message["role"] == "user":
-                    string_dialogue = string_dialogue + "User: " + dict_message["content"] + "\n\n" 
-                else:
-                    string_dialogue = string_dialogue + "Assistant: " + dict_message["content"] + "\n\n"
-            print (string_dialogue)
-            output = debounce_replicate_run(st.session_state['llm'], string_dialogue + "Assistant: ",  st.session_state['max_seq_len'], st.session_state['temperature'], st.session_state['top_p'], st.session_state['system_prompt'], REPLICATE_API_TOKEN)
-            for item in output:
-                full_response += item
-                message_placeholder.markdown(full_response + "▌")
-            message_placeholder.markdown(full_response)
-        # Add assistant response to chat history
-        st.session_state.chat_dialogue.append({"role": "assistant", "content": full_response})
+        next_action = 'send_user_test_to_assistant'
+        while next_action != None:
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                full_response = ""
+                string_dialogue = st.session_state['pre_prompt']
+                for dict_message in st.session_state.chat_dialogue:
+                    role_name = dict_message["role"][0].upper() + dict_message["role"][1:] # capitalize 1st letter
+                    string_dialogue = string_dialogue + role_name + ": " + dict_message["content"] + "\n\n"
+                print (string_dialogue)
+                #output = debounce_replicate_run(st.session_state['llm'], string_dialogue + "Assistant: ",  st.session_state['max_seq_len'], st.session_state['temperature'], st.session_state['top_p'], st.session_state['system_prompt'], REPLICATE_API_TOKEN)
+                prediction = replicate.predictions.create(get_llm_model_version(st.session_state['llm']), input={"prompt": string_dialogue + "Assistant: ", "system_prompt":st.session_state['system_prompt'], "max_length": st.session_state['max_seq_len'], "temperature": st.session_state['temperature'], "top_p": st.session_state['top_p'], "repetition_penalty": 1}, api_token=REPLICATE_API_TOKEN)
+                output = prediction.output_iterator()
+                for item in output:
+                    
+                    full_response += item
+                    stop_index = check_for_stop_conditions(full_response) #None if not stopping
+                    if stop_index:
+                        prediction.cancel()
+                        full_response = full_response[:stop_index]
+                        break # exit the output streaming loop
+                    message_placeholder.markdown(full_response + "▌")
+                message_placeholder.markdown(full_response)
+                
+            # Add assistant response to chat history
+            st.session_state.chat_dialogue.append({"role": "assistant", "content": full_response})
+
+            next_action, next_action_input = choose_next_action(full_response)
+            if next_action == 'query':
+                query_result_string,query_result_markdown = query_manager(st.session_state['db'], next_action_input)
+                with st.chat_message("query result",avatar = '🦆'):
+                    st.markdown(query_result_markdown)
+
+                st.session_state.chat_dialogue.append({"role": "query response", "content": query_result_string})
+                
 
 
 if 'user_info' in st.session_state or (not use_auth):
