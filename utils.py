@@ -1,6 +1,7 @@
 import replicate
 import time
 import re
+from traceback import format_exc
 
 # Initialize debounce variables
 last_call_time = 0
@@ -72,6 +73,14 @@ def check_for_stop_conditions(output):
     
     return stop_index
 
+def clean_up_response_formatting(response):
+
+    # if a query is presented as a code block after ```, but the stop_index cut off the closing ```
+    if response.count('```') == 1:
+        response = response + "\n```"
+
+    return response
+
 def choose_next_action(output):
     action = None
     action_input = None
@@ -79,14 +88,22 @@ def choose_next_action(output):
     if re.search('Query:',output,re.IGNORECASE):
         query_text = output[re.search('Query:',output,re.IGNORECASE).end():]
         action = 'query'
-        action_input = query_text.replace('```','') # strip the markdown code formatting backticks
+        action_input = query_text.replace('```sql','').replace('```','') # strip the markdown code formatting backticks
         return action, action_input
     
     return action, action_input
     
 def query_manager(db,query):
     "Return raw and markdown-formatted query results"
-    df = db.sql(query).df()
+    try:
+        print(f'Running query:\n{query}\n')
+        df = db.sql(query).df()
+    except Exception as e:
+        formatted_exc = str(e) #format_exc()
+        text_out = """The query returned a DuckDB error message:\n\n""" + formatted_exc \
+            + "\n\nCheck the SQL query and see if you can correct the issue and try again."
+        md_out = f""":red[ERROR ENCOUNTERED IN DATABASE QUERY] \n```\n{formatted_exc}\n```\n\n"""
+        return text_out, md_out
 
     # if df.shape[0] > 20:
     #     string_out = df.head(7).to_string(index=False) + df.tail(7).to_string(index=False,headers=False)

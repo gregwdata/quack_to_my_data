@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import os
 from utils import debounce_replicate_run, get_llm_model_version, check_for_stop_conditions, \
-    choose_next_action, query_manager
+    choose_next_action, query_manager, clean_up_response_formatting
 from auth0_component import login_button
 import argparse
 import duckdb
@@ -213,6 +213,7 @@ def render_app():
                     if stop_index:
                         prediction.cancel()
                         full_response = full_response[:stop_index]
+                        full_response = clean_up_response_formatting(full_response)
                         break # exit the output streaming loop
                     message_placeholder.markdown(full_response + "▌")
                 message_placeholder.markdown(full_response)
