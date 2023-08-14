@@ -134,10 +134,10 @@ def render_app():
     if selected_option == 'TPC-H':
         st.session_state['db'] = duckdb.connect(DB_TPCH)
         # update the prompt based on the selected DB:
-        st.session_state['pre_prompt'] = generate_preprompt(st.session_state['db'])
+        st.session_state['pre_prompt'], st.session_state['user_pre_prompt'] = generate_preprompt(st.session_state['db'])
     else:
         st.session_state['db'] = duckdb.connect(DB_TPCH)
-        st.session_state['pre_prompt'] = generate_preprompt(st.session_state['db'])
+        st.session_state['pre_prompt'], st.session_state['user_pre_prompt'] = generate_preprompt(st.session_state['db'])
 
     btn_col1, btn_col2 = st.sidebar.columns(2)
 
@@ -179,6 +179,10 @@ def render_app():
 
     st.sidebar.write(" ")
     st.sidebar.markdown("*Made with ❤️ by a16z Infra and Replicate. Not associated with Meta Platforms, Inc.*")
+
+    # Show basic database details to the user on startup (TODO: or DB selection change)
+    with st.chat_message("query result",avatar = '🦆'):
+        st.markdown(st.session_state['user_pre_prompt'])
 
     # Display chat messages from history on app rerun
     for message in st.session_state.chat_dialogue:

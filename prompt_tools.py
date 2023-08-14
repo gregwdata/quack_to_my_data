@@ -84,10 +84,21 @@ def response_options():
     """
     return instructions
 
+def make_markdown_table_list(df):
+    """
+    create a markdown-formated string listing out each table in the database
+    """
+
+    db_desc = """The database has the following tables:\n\n"""
+    db_desc += df[['schema','name']].to_markdown(index=False)
+
+    return db_desc
+
 def generate_preprompt(db):
     df = get_table_details(db)
     preprompt = list_table_schemas(df)
-    return preprompt
+    user_prepromt = make_markdown_table_list(df)
+    return preprompt, user_prepromt
 
 
 def generate_system_prompt():
