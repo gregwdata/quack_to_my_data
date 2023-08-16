@@ -27,7 +27,7 @@
     // Use 'postAttachCommand' to run commands after a tool has attached to the container.
     // Start the app.
     "postAttachCommand": {
-        "server": "streamlit run llama2_chatbot.py --server.enableCORS false --server.enableXsrfProtection false"
+        "server": "streamlit run llama2_chatbot.py --server.enableCORS false --server.enableXsrfProtection false -- --noauth"
     },
     "portsAttributes": {
         "8501": {
