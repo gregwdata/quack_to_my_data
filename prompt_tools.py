@@ -1,5 +1,6 @@
 import duckdb
 import re
+from db_specific_prompts import db_specific_prompts
 
 def get_table_details(db):
     """
@@ -11,7 +12,12 @@ def get_table_details(db):
     return df
 
 
-def list_table_schemas(df):
+def get_db_specific_prompt(db):
+    # assumes that only one db is loaded
+    dbname = db.sql("""SELECT database_name FROM duckdb_databases() WHERE not internal""").fetchone()[0]
+    return db_specific_prompts[dbname]
+
+def list_table_schemas(df,db_specific):
     """
     create a string listing out each table in the database and its column schema
     """
@@ -22,6 +28,8 @@ def list_table_schemas(df):
         for colname,coltype in zip(row.column_names,row.column_types):
             db_desc += f"  {colname}  {coltype},\n"
         db_desc += ");\n\n"
+
+    db_desc += db_specific
 
     return db_desc
 
@@ -96,7 +104,8 @@ def make_markdown_table_list(df):
 
 def generate_preprompt(db):
     df = get_table_details(db)
-    preprompt = list_table_schemas(df)
+    db_spec = get_db_specific_prompt(db)
+    preprompt = list_table_schemas(df,db_spec)
     user_prepromt = make_markdown_table_list(df)
     return preprompt, user_prepromt
 
