@@ -52,6 +52,22 @@ DuckDB is extremely fast for every analytics-focused use case where I've used it
 
 ## Features
 
+## Datasets
+
+To add a new dataset:
+
+* If needed, write a helper script in `./db_utils/`. The script should write the db as a `.duckdb` file to a subfolder of the `./db_files/` directory.
+
+    * The subfolder should have a name in common with the database file
+
+* Add a section to the `Makefile` to create the subfolder and run the script. If no script needed (data already prepared)
+
+* In `db_specific_prompts` add an item to the dictionary matching the database name
+
+### TPC-H 
+
+A [TPC-H](https://www.tpc.org/tpch/) benchmark dataset is created using DuckDB's `tpch` extension. For now the scale factor used is `0.1` for speed of creation and keeping the database to a reasonable small size for development.
+
 ## Usage on Codespaces
 
 
