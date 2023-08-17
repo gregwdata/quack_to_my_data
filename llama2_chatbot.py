@@ -74,7 +74,7 @@ def render_app():
     st.markdown(custom_css, unsafe_allow_html=True)
 
     #Left sidebar menu
-    st.sidebar.header("LLaMA2 Chatbot")
+    st.sidebar.header("🦆 Quack to my data")
 
     #Set config for a cleaner menu, footer & background:
     hide_streamlit_style = """
@@ -111,7 +111,7 @@ def render_app():
         st.session_state['system_prompt'] = generate_system_prompt()
 
     #Dropdown menu to select the model endpoint:
-    selected_option = st.sidebar.selectbox('Choose a LLaMA2 model:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B'], key='model')
+    selected_option = st.sidebar.selectbox('Choose an LLM:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B'], key='model')
     if selected_option == 'LLaMA2-7B':
         st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT7B
     elif selected_option == 'LLaMA2-13B':
