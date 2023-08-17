@@ -109,7 +109,7 @@ def query_manager(db,query):
     #     string_out = df.head(7).to_string(index=False) + df.tail(7).to_string(index=False,headers=False)
 
     if df.shape[0] > 20:
-        md_out = df.head(7).to_markdown(index=False) + '\n\n...\n\n' + '\n'.join(df.tail(7).to_markdown(index=False).splitlines()[3:]) # the splitlines and rejoin removes the headers from the bottom portion
+        md_out = df.head(7).to_markdown(index=False) + '\n| ... |\n' + '\n'.join(df.tail(7).to_markdown(index=False).splitlines()[2:]) + '\n' # the splitlines and rejoin removes the headers from the bottom portion
     else:
         md_out = df.to_markdown(index=False)
 

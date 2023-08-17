@@ -1,4 +1,4 @@
-# LLaMA 2 Chatbot App ⚡
+# 🦆 Quack to my data 🦆
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/gregwdata/quack_to_my_data?quickstart=1)
 
@@ -9,6 +9,8 @@ This is a project meant to get hands-on with the concept of using an LLM to enga
 It will use a local instance of 🦆 DuckDB to store some sample data sets. It will serve as a vehicle for exploring different approaches to guide the AI to produce correct and useful queries against the dataset.
 
 Development will initially be centered around running in GitHub Codespaces
+
+![Screen capture of an example interaction. The user asks for example part names, then asks for total revenue associated with one of the part names. In both cases a Llama2 70B LLM generates SQL queries that provide the answer, then summarizes the final revenue number.](./assets/quack_part_revenue.gif)
 
 ## 🤨 Why do this?
 
