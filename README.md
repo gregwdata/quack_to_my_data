@@ -69,7 +69,20 @@ To add a new dataset:
 A [TPC-H](https://www.tpc.org/tpch/) benchmark dataset is created using DuckDB's `tpch` extension. For now the scale factor used is `0.1` for speed of creation and keeping the database to a reasonable small size for development.
 
 ## Usage on Codespaces
+Start Codespaces on this repository by clicking [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/gregwdata/quack_to_my_data?quickstart=1)
+, or you can click on the Green code button on top right of the repo.
 
+To run this app, you will need to have a [replicate](https://replicate.com/) API key. Once you've obtained it, there are three options for using it within the app in Codespaces:
+
+* Following [these instructions](https://docs.github.com/en/codespaces/managing-your-codespaces/managing-encrypted-secrets-for-your-codespaces), you can securely store your API key as a secret within GitHub, tied to this repository. Be sure to name it `REPLICATE_API_TOKEN` so it is available in the codespace as an environment variable with the correct name.
+    * Using this method, if you set up this secret before opening the repo in Codespaces, the App will work correctly right out of the box.
+* In the `.env` file, uncomment the `REPLICATE_API_TOKEN` line, and add your API token there. `.env` is inlcuded in the `.gitignore` file, so this key will not be committed.
+    * You will need to restart the app using `make run_app` after adding this the first time you start your Codepsace
+* Manually add it as an environment variable with `export REPLICATE_API_TOKEN=<your token here>`
+    * You will need to restart the app using `make run_app` after adding this the first time you start your Codepsace
+
+
+When the app runs on startup or manually by running `make run_app` at the command line, the app should load within a preview browser inside the IDE. You can also click the `Ports` tab in the lower pane and the 🌐 icon that appears when you hover over the local address field to open it in its own browser tab.
 
 ## Authors
 
