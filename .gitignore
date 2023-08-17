@@ -123,7 +123,7 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-#.env #this can stay since we want to persist the replicate model IDs, and API token now stored in CodeSpaces environment
+.env
 .venv
 env/
 venv/
