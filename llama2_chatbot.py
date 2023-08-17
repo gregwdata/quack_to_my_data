@@ -1,16 +1,16 @@
 """
-LLaMA 2 Chatbot app
+Quack to my data
 ======================
 
-This is a Streamlit chatbot app with LLaMA2 that includes session chat history and an option to select multiple LLM
-API endpoints on Replicate. The 7B and 13B models run on Replicate on one A100 40Gb. The 70B runs in one A100 80Gb. The weights have been tensorized.
+This is a Streamlit chatbot app that runs DuckDB to interface with a database as directed by an LLM based on user questions.
+The LLMs are served via Replicate API endpoints, and the user has the option to select one of several models. Multiple data sets
+can be selected as well.
 
-Author: Marco Mascorro (@mascobot.com)
-Created: July 2023
-Version: 0.9.0 (Experimental)
+Author: Greg Wilson https://github.com/gregwdata
+Created: August 2023
+Version: 0.0.1 (Initial development)
 Status: Development
-Python version: 3.9.15
-a16z-infra
+Python version: 3.11.4
 """
 #External libraries:
 import streamlit as st
@@ -161,24 +161,25 @@ def render_app():
 
     text1 = 'Chatbot Demo Code' 
     text2 = 'LLaMA2 70B Model on Replicate' 
-    text3 = 'LLaMa2 Cog Template'
+    text3 = 'DuckDB SQL documentation'
 
     text1_link = "https://github.com/a16z-infra/llama2-chatbot"
     text2_link = "https://replicate.com/replicate/llama70b-v2-chat"
-    text3_link = "https://github.com/a16z-infra/cog-llama-template"
+    text3_link = "https://duckdb.org/docs/sql/introduction"
 
     logo1 = 'https://storage.googleapis.com/llama2_release/a16z_logo.png'
     logo2 = 'https://storage.googleapis.com/llama2_release/Screen%20Shot%202023-07-21%20at%2012.34.05%20PM.png'
+    logo3 = 'https://duckdb.org/images/favicon/favicon.ico'
 
     st.sidebar.markdown(
         "**Resources**  \n"
         f"<img src='{logo2}' style='height: 1em'> [{text2}]({text2_link})  \n"
         f"<img src='{logo1}' style='height: 1em'> [{text1}]({text1_link})  \n"
-        f"<img src='{logo1}' style='height: 1em'> [{text3}]({text3_link})",
+        f"<img src='{logo3}' style='height: 1em'> [{text3}]({text3_link})",
         unsafe_allow_html=True)
 
     st.sidebar.write(" ")
-    st.sidebar.markdown("*Made with ❤️ by a16z Infra and Replicate. Not associated with Meta Platforms, Inc.*")
+    st.sidebar.markdown("*Developed by Greg Wilson -  [![Repo](https://badgen.net/badge/icon/GitHub?icon=github&label)](https://github.com/gregwdata/quack_to_my_data)*")
 
     # Show basic database details to the user on startup (TODO: or DB selection change)
     with st.chat_message("query result",avatar = '🦆'):
