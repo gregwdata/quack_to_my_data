@@ -1,5 +1,6 @@
 # Database files
 # db_files/
+*.duckdb.wal
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
