@@ -46,7 +46,8 @@ REPLICATE_MODEL_ENDPOINT7B = os.environ.get('REPLICATE_MODEL_ENDPOINT7B', defaul
 REPLICATE_MODEL_ENDPOINT13B = os.environ.get('REPLICATE_MODEL_ENDPOINT13B', default='')
 REPLICATE_MODEL_ENDPOINT70B = os.environ.get('REPLICATE_MODEL_ENDPOINT70B', default='')
 DB_TPCH = r'./db_files/tpch/tpch.duckdb'
-PRE_PROMPT = "You are a helpful assistant. You do not respond as 'User' or pretend to be 'User'. You only respond once as Assistant."
+DB_LFU = r'./db_files/lfu/lfu.duckdb'
+
 #Auth0 for auth
 AUTH0_CLIENTID = os.environ.get('AUTH0_CLIENTID', default='')
 AUTH0_DOMAIN = os.environ.get('AUTH0_DOMAIN', default='')
@@ -104,9 +105,9 @@ def render_app():
     if 'string_dialogue' not in st.session_state:
         st.session_state['string_dialogue'] = ''
     if 'db' not in st.session_state:
-        st.session_state['db'] = duckdb.connect(DB_TPCH)
+        st.session_state['db'] = duckdb.connect(DB_TPCH,read_only=True)
     if 'pre_prompt' not in st.session_state:
-        st.session_state['pre_prompt'] = generate_preprompt(st.session_state['db'])
+        st.session_state['pre_prompt'], st.session_state['user_pre_prompt'] = generate_preprompt(st.session_state['db'])
     if 'system_prompt' not in st.session_state:
         st.session_state['system_prompt'] = generate_system_prompt()
 
@@ -129,21 +130,34 @@ def render_app():
     # else:
     #     st.session_state['pre_prompt'] = PRE_PROMPT
 
+    def clear_history():
+        st.session_state['chat_dialogue'] = []
+
+    def change_db():
+        selected_db = st.session_state['db_dropdown']
+        if selected_db == 'TPC-H':
+            st.session_state['db'] = duckdb.connect(DB_TPCH,read_only=True)
+            # update the prompt based on the selected DB:
+            st.session_state['pre_prompt'], st.session_state['user_pre_prompt'] = generate_preprompt(st.session_state['db'])
+            clear_history()
+        elif selected_db == 'Ladle Furnace':
+            st.session_state['db'] = duckdb.connect(DB_LFU,read_only=True)
+            # update the prompt based on the selected DB:
+            st.session_state['pre_prompt'], st.session_state['user_pre_prompt'] = generate_preprompt(st.session_state['db'])
+            clear_history()
+        else: #default to TPC-H if nothing else selected
+            st.session_state['db'] = duckdb.connect(DB_TPCH,read_only=True)
+            st.session_state['pre_prompt'], st.session_state['user_pre_prompt'] = generate_preprompt(st.session_state['db'])
+            clear_history()
+
     #Dropdown menu to select a dataset
-    selected_db = st.sidebar.selectbox('Choose a Database:', ['TPC-H'], key='db_dropdown')
-    if selected_option == 'TPC-H':
-        st.session_state['db'] = duckdb.connect(DB_TPCH)
-        # update the prompt based on the selected DB:
-        st.session_state['pre_prompt'], st.session_state['user_pre_prompt'] = generate_preprompt(st.session_state['db'])
-    else:
-        st.session_state['db'] = duckdb.connect(DB_TPCH)
-        st.session_state['pre_prompt'], st.session_state['user_pre_prompt'] = generate_preprompt(st.session_state['db'])
+    st.sidebar.selectbox('Choose a Database:', ['TPC-H','Ladle Furnace'], key='db_dropdown', on_change=change_db)
+
 
     btn_col1, btn_col2 = st.sidebar.columns(2)
 
     # Add the "Clear Chat History" button to the sidebar
-    def clear_history():
-        st.session_state['chat_dialogue'] = []
+
     clear_chat_history_button = btn_col1.button("Clear History",
                                             use_container_width=True,
                                             on_click=clear_history)
@@ -184,6 +198,7 @@ def render_app():
     # Show basic database details to the user on startup (TODO: or DB selection change)
     with st.chat_message("query result",avatar = '🦆'):
         st.markdown(st.session_state['user_pre_prompt'])
+    #st.session_state.chat_dialogue.append({"role": "🦆", "content": st.session_state['user_pre_prompt']})
 
     # Display chat messages from history on app rerun
     for message in st.session_state.chat_dialogue:
@@ -205,8 +220,12 @@ def render_app():
                 full_response = ""
                 string_dialogue = st.session_state['pre_prompt']
                 for dict_message in st.session_state.chat_dialogue:
-                    role_name = dict_message["role"][0].upper() + dict_message["role"][1:] # capitalize 1st letter
-                    string_dialogue = string_dialogue + role_name + ": " + dict_message["content"] + "\n\n"
+                    if dict_message["role"] == '🦆':
+                        role_name = 'Query result:\n'
+                        string_dialogue = string_dialogue + role_name + dict_message["content"] + "\n\n"
+                    else:
+                        role_name = dict_message["role"][0].upper() + dict_message["role"][1:] # capitalize 1st letter
+                        string_dialogue = string_dialogue + role_name + ": " + dict_message["content"] + "\n\n"
                 print (string_dialogue)
                 #output = debounce_replicate_run(st.session_state['llm'], string_dialogue + "Assistant: ",  st.session_state['max_seq_len'], st.session_state['temperature'], st.session_state['top_p'], st.session_state['system_prompt'], REPLICATE_API_TOKEN)
                 prediction = replicate.predictions.create(get_llm_model_version(st.session_state['llm']), input={"prompt": string_dialogue + "Assistant: ", "system_prompt":st.session_state['system_prompt'], "max_length": st.session_state['max_seq_len'], "temperature": st.session_state['temperature'], "top_p": st.session_state['top_p'], "repetition_penalty": 1}, api_token=REPLICATE_API_TOKEN)
@@ -230,12 +249,11 @@ def render_app():
             if next_action == 'query':
                 query_result_string,query_result_markdown = query_manager(st.session_state['db'], next_action_input)
                 with st.chat_message("query result",avatar = '🦆'):
-                    st.markdown(query_result_markdown)
+                    message_placeholder = st.empty()
+                    message_placeholder.markdown(query_result_markdown)
+                st.session_state.chat_dialogue.append({"role": '🦆', "content": query_result_markdown})
 
-                st.session_state.chat_dialogue.append({"role": "query response", "content": query_result_string})
                 
-
-
 if 'user_info' in st.session_state or (not use_auth):
 # if user_info:
     render_app()

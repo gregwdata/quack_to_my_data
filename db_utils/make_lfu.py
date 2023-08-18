@@ -11,7 +11,7 @@ try:
     for file in files:
         tablename = file.replace('.csv','').replace('data_','') # strip extension and remove the "data_" prefix
         db.sql(f"""
-        CREATE TABLE {tablename} as (SELECT * FROM read_csv_auto('{file}'))
+        CREATE TABLE {tablename} as (SELECT * FROM read_csv_auto('{file}',normalize_names = true))
         """)
     print('Successfully built LFU tables:')
     db.sql("SHOW TABLES").show()

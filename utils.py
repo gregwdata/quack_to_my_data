@@ -54,6 +54,13 @@ def check_for_stop_conditions(output):
         print('Complete SQL query detected. Stopping prediction...')
         stop_index = re.search('Query:(.+);',output,re.IGNORECASE | re.DOTALL).end()
         return stop_index
+    # check for query where the LLM does not use a semicolon to end the query.
+    # the system prompt calls for triple backticks, so fall back on that
+    # We expect to see Query: then maybe a newline, an opening set of 3 backticks, then a closing set
+    if re.search(r'Query:\n?```(.*)```',output,re.IGNORECASE | re.DOTALL): #dotall needed in case query is multiline
+        print('Complete SQL query detected. Stopping prediction...')
+        stop_index = re.search(r'Query:\n?```(.*)```',output,re.IGNORECASE | re.DOTALL).end()
+        return stop_index
 
     # if the llm starts hallucinating, it may print "User:" as the beginning of the hallucinated phase of conversation
     if re.search(r'(?<!Ask )User:',output,re.IGNORECASE):
@@ -108,9 +115,12 @@ def query_manager(db,query):
     # if df.shape[0] > 20:
     #     string_out = df.head(7).to_string(index=False) + df.tail(7).to_string(index=False,headers=False)
 
-    if df.shape[0] > 20:
-        md_out = df.head(7).to_markdown(index=False) + '\n| ... |\n' + '\n'.join(df.tail(7).to_markdown(index=False).splitlines()[2:]) + '\n' # the splitlines and rejoin removes the headers from the bottom portion
-    else:
-        md_out = df.to_markdown(index=False)
+    string_out = df.to_string(index=False,max_rows=20,min_rows=14)
 
-    return df.to_string(index=False,max_rows=20,min_rows=14), md_out
+    if df.shape[0] > 20:
+        # .astype(str) in the below lets pandas handle the value formatting, rather than the formatting functionality of tabulate, which to_markdown invokes
+        md_out = df.head(7).astype(str).to_markdown(index=False) + '\n| ... |\n' + '\n'.join(df.tail(7).astype(str).to_markdown(index=False).splitlines()[2:]) + '\n' # the splitlines and rejoin removes the headers from the bottom portion
+    else:
+        md_out = df.astype(str).to_markdown(index=False)
+
+    return string_out, md_out

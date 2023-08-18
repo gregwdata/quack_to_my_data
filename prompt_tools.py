@@ -22,9 +22,10 @@ def list_table_schemas(df,db_specific):
     create a string listing out each table in the database and its column schema
     """
 
-    db_desc = """The database is a DuckDB database and it has the following tables. Each table is listed in the form "schema.name", followed by an indented list of columns and their types:\n\n"""
+    db_desc = """The database is a DuckDB SQL database and it has the following tables:\n\n"""
     for row in df.itertuples():
         db_desc += f"CREATE TABLE {row.schema}.{row.name} (\n"
+        #db_desc += f"CREATE TABLE {row.name} (\n"
         for colname,coltype in zip(row.column_names,row.column_types):
             db_desc += f"  {colname}  {coltype},\n"
         db_desc += ");\n\n"
@@ -50,6 +51,8 @@ Keys between tables are likely not explicitly declared. You will need to infer c
 To do case insensitive comparisons, the use of "ILIKE" is recommended. ALWAYS use ILIKE instead of "=" when comparing strings such as names, countries, business names, etc..
 DO NOT use = in your queries to compare strings. Use ILIKE instead.
 Use a limit statement at the end of each query to keep the number of output rows to 20 or fewer, unless necessary.
+DO NOT repeat the same query twice. The user responding with the same question again may mean you need to try a different approach.
+When looking for a max or min value, remember to use ORDER BY in your query to sort the results accordingly.
 You MUST enclose your SQL queries in \n``` before and after the query.
 """
     return instructions
@@ -69,7 +72,7 @@ def response_options():
     instructions += """Docs: (this will display a list of SQL syntax documentation topics, in case you need help with errors) /End\n"""
     instructions += """Topic: <SQL documentation topic selection here> /End\n"""
     instructions += """Explain: <Explanation of query results here> /End\n"""
-    instructions += """You may only respond first with a Thought, then by slecting one of the other options. It is absolutely imperative that every action response from Assistant start with one of the above keywords and ends with "/End". Do not repeat any factual information unless you received it after a "query response" flag.\n"""
+    instructions += """You may only respond first with a Thought, then by selecting one of the other options. It is absolutely imperative that every action response from Assistant start with one of the above keywords and ends with "/End". Do not repeat any factual information unless you received it after a "query response" flag.\n"""
     instructions += """\nAn exchange with a user will be structured as:
     
     User: user question here
@@ -79,13 +82,14 @@ def response_options():
     2. step 2
     3. step 3
     [Query or Ask User or Docs or Topic or Explain]: <needed input to that action here. enclose SQL queries in \n``` ```> /End
-    System: Response to your action here
+    Query result: Response to your action here
     Thought: Now that I have done step 1, I will do step 2.
     [Query or Ask User or Docs or Topic or Explain]: <needed input to that action here. enclose SQL queries in \n``` ```> /End
-    And so on...
-
-    When you have collected enough information to answer the user's question, repond with:
+    ... repeat as many times as necessary.
+    Thought: I now know the answer!
     Final answer: final answer and explanation here. /End
+
+    When you have enough information to answer the user's question, you MUST give the final answer.
 
     Don't forget to end every action with /End.
     
