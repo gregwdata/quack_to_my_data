@@ -6,3 +6,12 @@ tpch:
 	mkdir -p ./db_files/tpch
 	rm -f ./db_files/tpch/*.duckdb
 	python db_utils/make_tpch.py 0.1
+
+lfu:
+	mkdir -p ./db_files/lfu
+	rm -f ./db_files/lfu/*.*
+	pip install kaggle
+	cd ./db_files/lfu; kaggle datasets download -d yuriykatser/industrial-data-from-the-ladlefurnace-unit
+	cd ./db_files/lfu; unzip industrial-data-from-the-ladlefurnace-unit.zip
+	cd ./db_files/lfu; rm -f industrial-data-from-the-ladlefurnace-unit.zip
+	cd ./db_files/lfu; python ../../db_utils/make_lfu.py
