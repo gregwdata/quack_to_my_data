@@ -2,6 +2,8 @@
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/gregwdata/quack_to_my_data?quickstart=1)
 
+[Instructions for running on Codespaces](https://github.com/gregwdata/quack_to_my_data/tree/main#usage-on-codespaces)
+
 ## 🤔 What is this?
 
 This is a project meant to get hands-on with the concept of using an LLM to engage with a database.
