@@ -30,7 +30,6 @@ Customers are associated with orders in the orders table via the custkey field.
 
 If a user asks a question about regions, note that the region is connected to nation via the regionkey field. So you will have 
 to join region to nation, then nation to either customer or supplier, depending on which one the user is asking about.
-If the user's question includes the nation a supplier or customer is in, YOU MUST join the supplier or customer to the nation table to find out the name of the country.
 
 Country names in the nation table are always capitalized. If you are filtering by country name, use ILIKE so the comparison is case insensitive.
 
@@ -48,7 +47,7 @@ WHERE p.p_name ILIKE 'small flange'
 AND n.n_name ILIKE 'EGYPT';
 ```
 
-The acquisition cost to our business of each item is stored in partsupp table as the supplycost field, and needs to combiation of partkey and suppkey to look it up.
+The acquisition cost to our business of each item is stored in partsupp table as the supplycost field, and needs to combination of partkey and suppkey to look it up.
 So to calculate the profit of an item, you need to subtract the supplycost field from partsupp from the retailprice field from the part table.
 
 """,
@@ -71,13 +70,60 @@ The "arc" table has both a "Heating start" and "Heating end" column, which indic
 The "bulk" table has columns "Bulk 1", "Bulk 2", ... , through "Bulk 15", which indicate the kg of certain bulk elements added to a given melt. There are many NULL values in this table, since not all bulk elements are used in every melt.
 The "bulk_time" table has the same columns and layout, with many NULLS, as the "bulk" table, but the values are the timestamps when that element was added to the melt.
 Similar to "bulk" and "bulk_time", the "wire" and "wire_time" tables list kg of wire types added and the corresponding timestamps. They both have many NULL values.
+The tables "bulk", "bulk_time", "wire", and "wire_time" all have one row per melt key.
 The "gas" table provides the amount of gas used on a given melt.
 The "temp" table and the "temp_FULL_with_test" table both contain temperature measurements at several times for each melt. The unit of the temperature is Celsius. 
 If a user asks a question about temperature, you MUST use the "temp_FULL_with_test" table for temperature data. The "temp" table has missing values.
 
 All time values are stored as timestamps in the format YYYY-MM-DD HH:mm:ss. If you want to match strictly on a date, it is best to compare time to the date with >= AND < conditions.
 
-When you query, do not inlcude the "main." schema prefix on the table names, since we only have one schema.
+When you query, do not include the "main." schema prefix on the table names, since we only have one schema.
+
+Example queries:
+User: How many arc heating cycles were applied in the melt with the most cycles? And how did temperature change over that melt?
+
+Assistant: Thought: I need to count the rows in the arc table to get the number of cycles, and I need to use the regr_slope function to calculate the slope of the temperature during the melt.
+Since the granularity of each table is different, I will aggregate each in a CTE, then join and select the results.
+
+Query:
+```
+WITH arc_cycles as (SELECT a._key, count(distinct a.heating_start) as num_cycles FROM arc a GROUP BY a._key),
+temp_slope as (SELECT t._key, regr_slope(t.temperature,epoch(t._time)) as deg_C_per_second FROM temp_FULL_with_test t GROUP BY t._key)
+SELECT ac._key, ac.num_cycles, ts.deg_C_per_second
+FROM arc_cycles ac
+LEFT JOIN temp_slope ts on ac._key = ts._key
+WHERE ac._key = (
+    SELECT c._key FROM arc_cycles c ORDER BY c.num_cycles desc limit 1
+);
+```
+
+Query result:
+_key, num_cycles, deg_C_per_second
+2108, 16, -0.0037564
+
+Assistant: Thought: I now have the information I need to answer the user's question!
+
+Final Answer: Melt 2108 had 16 arc cycles, and the temperature decreased at a rate of 0.003756 degrees C per second.
+
+User: How much Bulk 4 was added to melt 9, and at what time?
+
+Assistant: Thought: Since the bulk tables have one row per melt, I can simply join the bulk and bulk_time tables to find the answer. I do NOT need to aggregate (SUM or count) the values from bulk and bulk_time when I am examining a single melt.
+
+Query: 
+```
+SELECT b._key as melt, b.bulk_4, bt.bulk_4 as add_time
+FROM bulk b
+LEFT JOIN bulk_time bt on b._key = bt._key 
+WHERE b._key = 9;
+```
+
+Query result:
+melt, bulk_4, add_time
+9, 117.0, 2019-05-03 15:47:34
+
+Assistant: Thought: I now have the information I need to answer the user's question!
+
+Final Answer: Melt 9 had 117 kg of Bulk 4 added at 2019-05-03 15:47:34.
 
 """,
 }

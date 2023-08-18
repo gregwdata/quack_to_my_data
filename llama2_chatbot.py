@@ -110,6 +110,8 @@ def render_app():
         st.session_state['pre_prompt'], st.session_state['user_pre_prompt'] = generate_preprompt(st.session_state['db'])
     if 'system_prompt' not in st.session_state:
         st.session_state['system_prompt'] = generate_system_prompt()
+    if 'query_response_mapper' not in st.session_state:
+        st.session_state['query_response_mapper'] = {} # use this to keep markdown version in chat window, while sending cleaner text to LLM
 
     #Dropdown menu to select the model endpoint:
     selected_option = st.sidebar.selectbox('Choose an LLM:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B'], key='model')
@@ -222,7 +224,7 @@ def render_app():
                 for dict_message in st.session_state.chat_dialogue:
                     if dict_message["role"] == '🦆':
                         role_name = 'Query result:\n'
-                        string_dialogue = string_dialogue + role_name + dict_message["content"] + "\n\n"
+                        string_dialogue = string_dialogue + role_name + st.session_state['query_response_mapper'][dict_message["content"]] + "\n\n"
                     else:
                         role_name = dict_message["role"][0].upper() + dict_message["role"][1:] # capitalize 1st letter
                         string_dialogue = string_dialogue + role_name + ": " + dict_message["content"] + "\n\n"
@@ -248,6 +250,7 @@ def render_app():
             next_action, next_action_input = choose_next_action(full_response)
             if next_action == 'query':
                 query_result_string,query_result_markdown = query_manager(st.session_state['db'], next_action_input)
+                st.session_state['query_response_mapper'][query_result_markdown] = query_result_string
                 with st.chat_message("query result",avatar = '🦆'):
                     message_placeholder = st.empty()
                     message_placeholder.markdown(query_result_markdown)
