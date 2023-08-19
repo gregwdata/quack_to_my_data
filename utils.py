@@ -61,6 +61,12 @@ def check_for_stop_conditions(output):
         print('Complete SQL query detected. Stopping prediction...')
         stop_index = re.search(r'Query:\n?```(.*)```',output,re.IGNORECASE | re.DOTALL).end()
         return stop_index
+    
+    # check if the LLM requests to check table info:
+    if re.search(r'Table Info:\[?(.+)(\]|\n)',output,re.IGNORECASE | re.DOTALL): #dotall needed in case query is multiline
+        print('Complete SQL query detected. Stopping prediction...')
+        stop_index = re.search(r'Table Info:\[?(.+)(\]|\n)',output,re.IGNORECASE | re.DOTALL).end()
+        return stop_index
 
     # if the llm starts hallucinating, it may print "User:" as the beginning of the hallucinated phase of conversation
     if re.search(r'(?<!Ask )User:',output,re.IGNORECASE):
@@ -98,6 +104,12 @@ def choose_next_action(output):
         action_input = query_text.replace('```sql','').replace('```','') # strip the markdown code formatting backticks
         return action, action_input
     
+    if re.search('Table Info:',output,re.IGNORECASE):
+        raw_table_list = re.search(r'Table Info:\[?(.+)(\]|\n)',output,re.IGNORECASE).group(1).split(',')
+        action = 'table_info'
+        action_input = raw_table_list
+        return action, action_input
+    
     return action, action_input
     
 def query_manager(db,query):
@@ -108,7 +120,7 @@ def query_manager(db,query):
     except Exception as e:
         formatted_exc = str(e) #format_exc()
         text_out = """The query returned a DuckDB error message:\n\n""" + formatted_exc \
-            + "\n\nCheck the SQL query and see if you can correct the issue and try again."
+            + "\n\nUser: Check the SQL query and see if you can correct the issue and try again."
         md_out = f""":red[ERROR ENCOUNTERED IN DATABASE QUERY] \n```\n{formatted_exc}\n```\n\n"""
         return text_out, md_out
 
@@ -123,4 +135,34 @@ def query_manager(db,query):
     else:
         md_out = df.astype(str).to_markdown(index=False)
 
+    return string_out, md_out
+
+def generate_table_info(db,tables=None):
+    "Return a description of the selected list of tables"
+    string_out = ''
+    md_out = ''
+
+    try:
+        print(f'Generating table info for: {tables}\n')
+        for table in tables:
+            # Use the DuckDB summarize function to describe the data in each column
+            # query = f"""SUMMARIZE {table}"""
+            # table_string, table_md = query_manager(db,query)
+            # text = f'\nSummary of the columns of table {table}:\n'
+            # string_out += text + table_string + '\n'
+            # md_out += text + table_md + '\n'
+
+            # Select 3 rows from the table
+            query = f"""SELECT * FROM {table} LIMIT 3"""
+            table_string, table_md = query_manager(db,query)
+            text = f'\nSample of 3 rows of table {table}:\n'
+            string_out += text + table_string + '\n'
+            md_out += text + table_md + '\n'
+    except Exception as e:
+        formatted_exc = str(e) #format_exc()
+        text_out = """The query returned a DuckDB error message:\n\n""" + formatted_exc \
+            + "\n\nUser: Check the SQL query and see if you can correct the issue and try again."
+        md_out = f""":red[ERROR ENCOUNTERED IN DATABASE QUERY] \n```\n{formatted_exc}\n```\n\n"""
+        return text_out, md_out
+    
     return string_out, md_out

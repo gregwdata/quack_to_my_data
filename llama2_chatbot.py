@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import os
 from utils import debounce_replicate_run, get_llm_model_version, check_for_stop_conditions, \
-    choose_next_action, query_manager, clean_up_response_formatting
+    choose_next_action, query_manager, clean_up_response_formatting, generate_table_info
 from auth0_component import login_button
 import argparse
 import duckdb
@@ -108,10 +108,12 @@ def render_app():
         st.session_state['db'] = duckdb.connect(DB_TPCH,read_only=True)
     if 'pre_prompt' not in st.session_state:
         st.session_state['pre_prompt'], st.session_state['user_pre_prompt'] = generate_preprompt(st.session_state['db'])
-    if 'system_prompt' not in st.session_state:
-        st.session_state['system_prompt'] = generate_system_prompt()
     if 'query_response_mapper' not in st.session_state:
         st.session_state['query_response_mapper'] = {} # use this to keep markdown version in chat window, while sending cleaner text to LLM
+    if 'check_tables' not in st.session_state:
+        st.session_state['check_tables'] = True
+    if 'system_prompt' not in st.session_state:
+        st.session_state['system_prompt'] = generate_system_prompt(check_tables=st.session_state['check_tables'])
 
     #Dropdown menu to select the model endpoint:
     selected_option = st.sidebar.selectbox('Choose an LLM:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B'], key='model')
@@ -171,6 +173,17 @@ def render_app():
         logout_button = btn_col2.button("Logout",
                                     use_container_width=True,
                                     on_click=logout)
+        
+    # make it easy to turn on/off the additional option to check tables before proposing a query
+    def set_table_check():
+        selected_option = st.session_state['check_tables_radio']
+        if selected_option == 'yes':
+            st.session_state['check_tables'] = True
+        else:
+            st.session_state['check_tables'] = False
+        st.session_state['system_prompt'] = generate_system_prompt(check_tables=st.session_state['check_tables'])
+
+    check_tables_button = btn_col2.radio("Intermediate table check:",('yes','no'),on_change=set_table_check,key='check_tables_radio')
         
     # add links to relevant resources for users to select
     st.sidebar.write(" ")
@@ -255,7 +268,13 @@ def render_app():
                     message_placeholder = st.empty()
                     message_placeholder.markdown(query_result_markdown)
                 st.session_state.chat_dialogue.append({"role": '🦆', "content": query_result_markdown})
-
+            elif next_action == 'table_info':
+                query_result_string,query_result_markdown = generate_table_info(st.session_state['db'], next_action_input)
+                st.session_state['query_response_mapper'][query_result_markdown] = query_result_string
+                with st.chat_message("query result",avatar = '🦆'):
+                    message_placeholder = st.empty()
+                    message_placeholder.markdown(query_result_markdown)
+                st.session_state.chat_dialogue.append({"role": '🦆', "content": query_result_markdown})
                 
 if 'user_info' in st.session_state or (not use_auth):
 # if user_info:
