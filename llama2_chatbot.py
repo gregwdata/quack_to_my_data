@@ -45,6 +45,7 @@ REPLICATE_API_TOKEN = os.environ.get('REPLICATE_API_TOKEN', default='')
 REPLICATE_MODEL_ENDPOINT7B = os.environ.get('REPLICATE_MODEL_ENDPOINT7B', default='')
 REPLICATE_MODEL_ENDPOINT13B = os.environ.get('REPLICATE_MODEL_ENDPOINT13B', default='')
 REPLICATE_MODEL_ENDPOINT70B = os.environ.get('REPLICATE_MODEL_ENDPOINT70B', default='')
+REPLICATE_MODEL_ENDPOINT_SQLCODER = os.environ.get('REPLICATE_MODEL_ENDPOINT_SQLCODER', default='')
 DB_TPCH = r'./db_files/tpch/tpch.duckdb'
 DB_LFU = r'./db_files/lfu/lfu.duckdb'
 
@@ -114,11 +115,13 @@ def render_app():
         st.session_state['query_response_mapper'] = {} # use this to keep markdown version in chat window, while sending cleaner text to LLM
 
     #Dropdown menu to select the model endpoint:
-    selected_option = st.sidebar.selectbox('Choose an LLM:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B'], key='model')
+    selected_option = st.sidebar.selectbox('Choose an LLM:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B','defog-SQLCoder'], key='model')
     if selected_option == 'LLaMA2-7B':
         st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT7B
     elif selected_option == 'LLaMA2-13B':
         st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT13B
+    elif selected_option == 'defog-SQLCoder':
+        st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT_SQLCODER
     else:
         st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT70B
     #Model hyper parameters:
