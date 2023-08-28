@@ -113,17 +113,23 @@ def render_app():
         st.session_state['system_prompt'] = generate_system_prompt()
     if 'query_response_mapper' not in st.session_state:
         st.session_state['query_response_mapper'] = {} # use this to keep markdown version in chat window, while sending cleaner text to LLM
+    if 'query_follow_up' not in st.session_state:
+        st.session_state['query_follow_up'] = True # pass the query result back to the LLM to explain it
 
     #Dropdown menu to select the model endpoint:
     selected_option = st.sidebar.selectbox('Choose an LLM:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B','defog-SQLCoder'], key='model')
     if selected_option == 'LLaMA2-7B':
         st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT7B
+        st.session_state['query_follow_up'] = True
     elif selected_option == 'LLaMA2-13B':
         st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT13B
+        st.session_state['query_follow_up'] = True
     elif selected_option == 'defog-SQLCoder':
         st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT_SQLCODER
+        st.session_state['query_follow_up'] = False
     else:
         st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT70B
+        st.session_state['query_follow_up'] = True
     #Model hyper parameters:
     st.session_state['temperature'] = st.sidebar.slider('Temperature:', min_value=0.01, max_value=5.0, value=0.1, step=0.01)
     st.session_state['top_p'] = st.sidebar.slider('Top P:', min_value=0.01, max_value=1.0, value=0.9, step=0.01)
@@ -258,6 +264,11 @@ def render_app():
                     message_placeholder = st.empty()
                     message_placeholder.markdown(query_result_markdown)
                 st.session_state.chat_dialogue.append({"role": '🦆', "content": query_result_markdown})
+                if not st.session_state['query_follow_up']: 
+                    # if we don't want to pass the query result back to the LLM, then set next_action to None so we stop
+                    # unless there was an error in the query
+                    if not query_result_string.startswith('The query returned a DuckDB error message:'):
+                        next_action = None
 
                 
 if 'user_info' in st.session_state or (not use_auth):
