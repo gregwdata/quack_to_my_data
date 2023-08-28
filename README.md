@@ -5,13 +5,25 @@
 [Instructions for running on Codespaces](https://github.com/gregwdata/quack_to_my_data/tree/main#usage-on-codespaces)
 
 ## 📰 Latest updates
-**2023-08-28**: Added SQLCoder as a model choice. This model was open sourced by Defog - [Repo Here](https://github.com/defog-ai/sqlcoder) - and, via [this repo](https://github.com/gregwdata/cog-sqlcoder), I deployed it to  [Replicate](https://replicate.com/gregwdata/defog-sqlcoder-q8). 
+### 2023-08-28 
+**Added SQLCoder as a model choice** 
+
+This model was open sourced by Defog - [Repo Here](https://github.com/defog-ai/sqlcoder) - and, via [this repo](https://github.com/gregwdata/cog-sqlcoder), I deployed it to  [Replicate](https://replicate.com/gregwdata/defog-sqlcoder-q8). 
 
 * The SQLCoder model produces correct SQL queries on the first try, based on initial testing with some fairly simple questions.
 * Based on the implementation from Defog's original repo, it uses ` ``` ` as a stop sequence, and adds its own prompt template that leads the model to only output a SQL query, then hit that stop sequence. To make it more "interactive" in the mode this interface is set up for - i.e. interpreting and explaining the results, or having a full conversation about them, it will be necessary to explicitly overwrite the `prompt_template` and `schema_metadata` parameters for this model. Leaving as a **TODO** for now to specify a seperate request engine for each model so that model-specific parameters can be dealt with.
 * A dual-model approach, where SQLCoder is used to generate queries, and a more general LLM like Llama is used to set up input to SQLCoder and explain the query and results to the user, may be the best way to make use of SQLCoder
 * Be warned, since the Replicate SQLCoder model is seldom used, there is a ~5 minute cold start time if you start using it with Quack to my data. 
 
+**Add CodeLlama as a model choice**
+
+Now that Replicate has added CodeLlama models, included them in the model choices. 
+
+*CodeLlama-13B* uses the [CodeLlama-13B-instruct](https://replicate.com/replicate/codellama-13b-instruct) model, which is instruction-tuned, and works well with the prompting set up in Quack to my data.
+
+There is currently no instructrion-tuned *CodeLlama-34B* available on Replicate, so that option points to the [base CodeLlama-34B model](https://replicate.com/replicate/codellama-34b). This does *not* work well with Quack to my data. Initial trials resulted in streaming back a sequence of `11111111...`. Will update to an instruction-tuned version once available.
+
+Also updated the version pointers for all models in the .env and .env_template files to the latest versions of each model on Replicate.
 
 ## 🤔 What is this?
 

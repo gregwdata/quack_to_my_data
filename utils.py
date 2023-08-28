@@ -93,10 +93,11 @@ def choose_next_action(output):
     action_input = None
 
     if re.search('Query:',output,re.IGNORECASE):
-        query_text = output[re.search('Query:',output,re.IGNORECASE).end():]
+        for match in re.finditer('Query:',output,re.IGNORECASE):
+            query_start = match.end() # make sure we get the end of the last time "Query:" is found
+        query_text = output[query_start:]
         action = 'query'
         action_input = query_text.replace('```sql','').replace('```','') # strip the markdown code formatting backticks
-        return action, action_input
     elif (output.upper().startswith('SELECT') or output.upper().startswith('WITH')) and (output.upper().endswith(';')): # case where SQLcoder model just returns queries w/ no Query: flag
         action = 'query'
         action_input = output

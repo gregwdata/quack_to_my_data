@@ -46,6 +46,8 @@ REPLICATE_MODEL_ENDPOINT7B = os.environ.get('REPLICATE_MODEL_ENDPOINT7B', defaul
 REPLICATE_MODEL_ENDPOINT13B = os.environ.get('REPLICATE_MODEL_ENDPOINT13B', default='')
 REPLICATE_MODEL_ENDPOINT70B = os.environ.get('REPLICATE_MODEL_ENDPOINT70B', default='')
 REPLICATE_MODEL_ENDPOINT_SQLCODER = os.environ.get('REPLICATE_MODEL_ENDPOINT_SQLCODER', default='')
+REPLICATE_MODEL_ENDPOINT_CL34B = os.environ.get('REPLICATE_MODEL_ENDPOINT_CL34B',default='')
+REPLICATE_MODEL_ENDPOINT_CL13B = os.environ.get('REPLICATE_MODEL_ENDPOINT_CL13B',default='')
 DB_TPCH = r'./db_files/tpch/tpch.duckdb'
 DB_LFU = r'./db_files/lfu/lfu.duckdb'
 
@@ -117,12 +119,18 @@ def render_app():
         st.session_state['query_follow_up'] = True # pass the query result back to the LLM to explain it
 
     #Dropdown menu to select the model endpoint:
-    selected_option = st.sidebar.selectbox('Choose an LLM:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B','defog-SQLCoder'], key='model')
+    selected_option = st.sidebar.selectbox('Choose an LLM:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B','defog-SQLCoder','CodeLLaMA-34B','CodeLLaMA-13B'], key='model')
     if selected_option == 'LLaMA2-7B':
         st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT7B
         st.session_state['query_follow_up'] = True
     elif selected_option == 'LLaMA2-13B':
         st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT13B
+        st.session_state['query_follow_up'] = True
+    elif selected_option == 'CodeLLaMA-34B':
+        st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT_CL34B
+        st.session_state['query_follow_up'] = True
+    elif selected_option == 'CodeLLaMA-13B':
+        st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT_CL13B
         st.session_state['query_follow_up'] = True
     elif selected_option == 'defog-SQLCoder':
         st.session_state['llm'] = REPLICATE_MODEL_ENDPOINT_SQLCODER
