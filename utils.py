@@ -97,6 +97,10 @@ def choose_next_action(output):
         action = 'query'
         action_input = query_text.replace('```sql','').replace('```','') # strip the markdown code formatting backticks
         return action, action_input
+    elif (output.upper().startswith('SELECT') or output.upper().startswith('WITH')) and (output.upper().endswith(';')): # case where SQLcoder model just returns queries w/ no Query: flag
+        action = 'query'
+        action_input = output
+        return action, action_input
     
     return action, action_input
     
