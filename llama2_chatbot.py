@@ -19,7 +19,8 @@ from dotenv import load_dotenv
 load_dotenv()
 import os
 from utils import debounce_replicate_run, get_llm_model_version, check_for_stop_conditions, \
-    choose_next_action, query_manager, clean_up_response_formatting
+    choose_next_action, query_manager, clean_up_response_formatting, \
+    generate_logging_uuid, log_llm_call, log_response
 from auth0_component import login_button
 import argparse
 import duckdb
@@ -117,6 +118,8 @@ def render_app():
         st.session_state['query_response_mapper'] = {} # use this to keep markdown version in chat window, while sending cleaner text to LLM
     if 'query_follow_up' not in st.session_state:
         st.session_state['query_follow_up'] = True # pass the query result back to the LLM to explain it
+    if 'session_uuid' not in st.session_state:
+        st.session_state['session_uuid'] = generate_logging_uuid() # associate a uuid to the chat session. this will be reset each time the chat history is cleared. It will allow sequences of LLM calls to be grouped together from the logs
 
     #Dropdown menu to select the model endpoint:
     selected_option = st.sidebar.selectbox('Choose an LLM:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B','defog-SQLCoder','CodeLLaMA-34B','CodeLLaMA-13B'], key='model')
@@ -151,6 +154,7 @@ def render_app():
 
     def clear_history():
         st.session_state['chat_dialogue'] = []
+        st.session_state['session_uuid'] = generate_logging_uuid()
 
     def change_db():
         selected_db = st.session_state['db_dropdown']
@@ -232,7 +236,7 @@ def render_app():
         with st.chat_message("user"):
             st.markdown(prompt)
         
-        next_action = 'send_user_test_to_assistant'
+        next_action = 'send_user_text_to_assistant'
         while next_action != None:
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
@@ -247,7 +251,16 @@ def render_app():
                         string_dialogue = string_dialogue + role_name + ": " + dict_message["content"] + "\n\n"
                 print (string_dialogue)
                 #output = debounce_replicate_run(st.session_state['llm'], string_dialogue + "Assistant: ",  st.session_state['max_seq_len'], st.session_state['temperature'], st.session_state['top_p'], st.session_state['system_prompt'], REPLICATE_API_TOKEN)
-                prediction = replicate.predictions.create(get_llm_model_version(st.session_state['llm']), input={"prompt": string_dialogue + "Assistant: ", "system_prompt":st.session_state['system_prompt'], "max_length": st.session_state['max_seq_len'], "temperature": st.session_state['temperature'], "top_p": st.session_state['top_p'],"max_new_tokens": st.session_state['max_seq_len'], "repetition_penalty": 1}, api_token=REPLICATE_API_TOKEN)
+                llm_call_uuid = generate_logging_uuid()
+                llm_call_input_dict = {"prompt": string_dialogue + "Assistant: ", 
+                                       "system_prompt": st.session_state['system_prompt'], 
+                                       "max_length": st.session_state['max_seq_len'],
+                                       "temperature": st.session_state['temperature'], 
+                                       "top_p": st.session_state['top_p'], 
+                                       "max_new_tokens": st.session_state['max_seq_len'], 
+                                       "repetition_penalty": 1}
+                log_llm_call(st.session_state['llm'],llm_call_input_dict,llm_call_uuid,st.session_state['session_uuid'])
+                prediction = replicate.predictions.create(get_llm_model_version(st.session_state['llm']), input=llm_call_input_dict, api_token=REPLICATE_API_TOKEN)
                 output = prediction.output_iterator()
                 for item in output:
                     
@@ -259,6 +272,7 @@ def render_app():
                         full_response = clean_up_response_formatting(full_response)
                         break # exit the output streaming loop
                     message_placeholder.markdown(full_response + "▌")
+                log_response(full_response,llm_call_uuid,st.session_state['session_uuid'])
                 message_placeholder.markdown(full_response)
                 
             # Add assistant response to chat history
