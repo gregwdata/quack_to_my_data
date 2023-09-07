@@ -156,8 +156,24 @@ def log_llm_call(llm,param_dict,call_uuid,session_uuid):
     logging.info(prepend_uuid_on_message(session_uuid,call_uuid,'llm_name|'+llm_model_name ))
     logging.info(prepend_uuid_on_message(session_uuid,call_uuid,'llm_version|'+llm_version ))
     for key in param_dict.keys():
-        logging.info(prepend_uuid_on_message(session_uuid,call_uuid,'input|'+key+'|'+str(param_dict[key]) ))
+        logging.info(prepend_uuid_on_message(session_uuid,call_uuid,'input_'+key+'|'+str(param_dict[key])  + f'|||end input_{key}|||' ))
 
 def log_response(response,call_uuid,session_uuid):
     """"""
-    logging.info(prepend_uuid_on_message(session_uuid,call_uuid,'response|'+response ))
+    logging.info(prepend_uuid_on_message(session_uuid,call_uuid,'response|'+response + '|||end response|||' ))
+
+def log_action(next_action,action_input,call_uuid,session_uuid):
+    """"""
+    logging.info(prepend_uuid_on_message(session_uuid,call_uuid,'next_action|'+str(next_action) ))
+    if action_input: #only log if not None
+        logging.info(prepend_uuid_on_message(session_uuid,call_uuid,'next_action_input|'+str(action_input) + '|||end next_action_input|||' ))
+
+def log_query_result(query_result_string,query_result_markdown,call_uuid,session_uuid):
+    """"""
+    logging.info(prepend_uuid_on_message(session_uuid,call_uuid,'query_result_string|'+str(query_result_string) + '|||end query_result_string|||' ))
+    logging.info(prepend_uuid_on_message(session_uuid,call_uuid,'query_result_markdown|'+str(query_result_markdown) + '|||end query_result_markdown|||' ))
+
+def log_noteworthy(sentiment,explanation,call_uuid,session_uuid):
+    """Record a user-identified interaction as noteworthy (could be a good or bad example!)"""
+    logging.info(prepend_uuid_on_message(session_uuid,call_uuid,'noteworthy_example_sentiment|'+sentiment ))
+    logging.info(prepend_uuid_on_message(session_uuid,call_uuid,'noteworthy_example_reason|'+explanation + '|||end noteworthy_example_reason|||' ))
