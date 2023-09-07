@@ -19,3 +19,12 @@ lfu:
 	cd ./db_files/lfu; unzip industrial-data-from-the-ladlefurnace-unit.zip
 	cd ./db_files/lfu; rm -f industrial-data-from-the-ladlefurnace-unit.zip
 	cd ./db_files/lfu; python ../../db_utils/make_lfu.py
+
+wca:
+	mkdir -p ./db_files/wca
+	rm -f ./db_files/wca/*.*
+	cd ./db_files/wca; wget https://www.worldcubeassociation.org/export/results/WCA_export250_20230907T121444Z.sql.zip
+	cd ./db_files/wca; unzip WCA_export*.zip
+	cd ./db_files/wca; rm -f WCA_export*.zip
+	pip install sqlglot
+	cd ./db_files/wca; python ../../db_utils/make_wca.py
