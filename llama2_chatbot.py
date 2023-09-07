@@ -19,7 +19,8 @@ from dotenv import load_dotenv
 load_dotenv()
 import os
 from utils import debounce_replicate_run, get_llm_model_version, check_for_stop_conditions, \
-    choose_next_action, query_manager, clean_up_response_formatting
+    choose_next_action, query_manager, clean_up_response_formatting, \
+    generate_logging_uuid, log_llm_call, log_response, log_action, log_query_result, log_noteworthy
 from auth0_component import login_button
 import argparse
 import duckdb
@@ -117,6 +118,14 @@ def render_app():
         st.session_state['query_response_mapper'] = {} # use this to keep markdown version in chat window, while sending cleaner text to LLM
     if 'query_follow_up' not in st.session_state:
         st.session_state['query_follow_up'] = True # pass the query result back to the LLM to explain it
+    if 'session_uuid' not in st.session_state:
+        st.session_state['session_uuid'] = generate_logging_uuid() # associate a uuid to the chat session. this will be reset each time the chat history is cleared. It will allow sequences of LLM calls to be grouped together from the logs
+    if 'llm_call_uuid' not in st.session_state:
+        st.session_state['llm_call_uuid'] = None
+    if 'last_sentiment_clicked' not in st.session_state:
+        st.session_state['last_sentiment_clicked'] = None # store whether the user has clicked thumbs up or thumbs down
+    if 'feedback_is_expanded' not in st.session_state:
+        st.session_state['feedback_is_expanded'] = False
 
     #Dropdown menu to select the model endpoint:
     selected_option = st.sidebar.selectbox('Choose an LLM:', ['LLaMA2-70B', 'LLaMA2-13B', 'LLaMA2-7B','defog-SQLCoder','CodeLLaMA-34B','CodeLLaMA-13B'], key='model')
@@ -151,6 +160,7 @@ def render_app():
 
     def clear_history():
         st.session_state['chat_dialogue'] = []
+        st.session_state['session_uuid'] = generate_logging_uuid()
 
     def change_db():
         selected_db = st.session_state['db_dropdown']
@@ -232,7 +242,7 @@ def render_app():
         with st.chat_message("user"):
             st.markdown(prompt)
         
-        next_action = 'send_user_test_to_assistant'
+        next_action = 'send_user_text_to_assistant'
         while next_action != None:
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
@@ -247,7 +257,17 @@ def render_app():
                         string_dialogue = string_dialogue + role_name + ": " + dict_message["content"] + "\n\n"
                 print (string_dialogue)
                 #output = debounce_replicate_run(st.session_state['llm'], string_dialogue + "Assistant: ",  st.session_state['max_seq_len'], st.session_state['temperature'], st.session_state['top_p'], st.session_state['system_prompt'], REPLICATE_API_TOKEN)
-                prediction = replicate.predictions.create(get_llm_model_version(st.session_state['llm']), input={"prompt": string_dialogue + "Assistant: ", "system_prompt":st.session_state['system_prompt'], "max_length": st.session_state['max_seq_len'], "temperature": st.session_state['temperature'], "top_p": st.session_state['top_p'],"max_new_tokens": st.session_state['max_seq_len'], "repetition_penalty": 1}, api_token=REPLICATE_API_TOKEN)
+                llm_call_uuid = generate_logging_uuid()
+                st.session_state['llm_call_uuid'] = llm_call_uuid
+                llm_call_input_dict = {"prompt": string_dialogue + "Assistant: ", 
+                                       "system_prompt": st.session_state['system_prompt'], 
+                                       "max_length": st.session_state['max_seq_len'],
+                                       "temperature": st.session_state['temperature'], 
+                                       "top_p": st.session_state['top_p'], 
+                                       "max_new_tokens": st.session_state['max_seq_len'], 
+                                       "repetition_penalty": 1}
+                log_llm_call(st.session_state['llm'],llm_call_input_dict,llm_call_uuid,st.session_state['session_uuid'])
+                prediction = replicate.predictions.create(get_llm_model_version(st.session_state['llm']), input=llm_call_input_dict, api_token=REPLICATE_API_TOKEN)
                 output = prediction.output_iterator()
                 for item in output:
                     
@@ -259,14 +279,17 @@ def render_app():
                         full_response = clean_up_response_formatting(full_response)
                         break # exit the output streaming loop
                     message_placeholder.markdown(full_response + "▌")
+                log_response(full_response,st.session_state['llm_call_uuid'],st.session_state['session_uuid'])
                 message_placeholder.markdown(full_response)
                 
             # Add assistant response to chat history
             st.session_state.chat_dialogue.append({"role": "assistant", "content": full_response})
 
             next_action, next_action_input = choose_next_action(full_response)
+            log_action(next_action, next_action_input,st.session_state['llm_call_uuid'],st.session_state['session_uuid'])
             if next_action == 'query':
                 query_result_string,query_result_markdown = query_manager(st.session_state['db'], next_action_input)
+                log_query_result(query_result_string,query_result_markdown,st.session_state['llm_call_uuid'],st.session_state['session_uuid'])
                 st.session_state['query_response_mapper'][query_result_markdown] = query_result_string
                 with st.chat_message("query result",avatar = '🦆'):
                     message_placeholder = st.empty()
@@ -278,7 +301,52 @@ def render_app():
                     if not query_result_string.startswith('The query returned a DuckDB error message:'):
                         next_action = None
 
+
+    def store_sentiment(sentiment=None):
+        st.session_state['feedback_is_expanded'] = True
+        st.session_state['last_sentiment_clicked'] = sentiment
+
+    def submit_feedback():
+        print(st.session_state['last_sentiment_clicked'])
+        print(st.session_state['feedback_text_input'])
+        log_noteworthy(st.session_state['last_sentiment_clicked'],st.session_state['feedback_text_input'],st.session_state['llm_call_uuid'],st.session_state['session_uuid'])
+        st.session_state['feedback_is_expanded'] = False
+        st.session_state['last_sentiment_clicked'] = None #reset after submitting
+        st.session_state['feedback_text_input'] = '' #reset the field
+
+    with st.container():
+
+        #Put a container under the chat area for feedback?
+        feedback_col1, feedback_col2, feedback_col3 = st.columns([0.1,0.1,0.8])
                 
+        with feedback_col1:
+            st.button(':thumbsup:',
+                    on_click=store_sentiment,
+                    help = 'Click to record this interQUACKtion as a good example',
+                    args=['positive'],                  
+                    )
+        with feedback_col2:
+            st.button(':thumbsdown:',
+                    on_click=store_sentiment,
+                    help = 'Click to record this interQUACKtion as a poor example',
+                    args=['negative'],                  
+                    )
+            
+        feedback_comment_expander = feedback_col3.expander(':arrow_left: Annotate this as a good or bad example', expanded=st.session_state['feedback_is_expanded'])
+        feedback_text_val = feedback_comment_expander.text_input('feedback_text_input', 
+                        value="", 
+                        max_chars=None, 
+                        key='feedback_text_input', 
+                        type="default", 
+                        on_change=None, 
+                        args=None, 
+                        kwargs=None,
+                        placeholder="Describe why this is a noteworthy interQUACKtion", 
+                        disabled=False, 
+                        label_visibility="hidden")
+        feedback_comment_expander.button("Submit",type='primary',on_click=submit_feedback)
+
+
 if 'user_info' in st.session_state or (not use_auth):
 # if user_info:
     render_app()

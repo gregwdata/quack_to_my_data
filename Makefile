@@ -2,6 +2,10 @@ run_app:
 	[ -e .env ] || cp .env_template .env # if the .env file does not exist, create it from .env template
 	streamlit run llama2_chatbot.py --server.enableCORS false --server.enableXsrfProtection false -- --noauth
 
+clear_log:
+	rm -f ./log/interaction_log.log
+	$(info Log file deleted. Restart app to create a new empty log file - otherwise log output will not be recorded.)
+
 tpch:
 	mkdir -p ./db_files/tpch
 	rm -f ./db_files/tpch/*.duckdb
