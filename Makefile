@@ -28,3 +28,4 @@ wca:
 	cd ./db_files/wca; rm -f WCA_export*.zip
 	pip install sqlglot
 	cd ./db_files/wca; python ../../db_utils/make_wca.py
+	cd ./db_files/wca; ls | grep -xv "wca.duckdb" | xargs rm
