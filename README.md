@@ -5,6 +5,31 @@
 [Instructions for running on Codespaces](https://github.com/gregwdata/quack_to_my_data/tree/main#usage-on-codespaces)
 
 ## 📰 Latest updates
+### 2023-09-08 
+**🧩 Added a Speedcubing data set** 
+
+Inlcuded a new dataset, results database from the World Cube Association. See the description in the [WCA Dataset section below](#WCA).
+
+In initial testing with LLaMA2-70B, it struggles a little bit with the structure of the dataset. This still needs a significant amount of prompt development to make it useful on the WCA data.
+
+Here's a GIF of it struggling to query the right combination of columns and tables (even though the full DDL is in the prompt!), iterating over errors from the queries until it finally runs out of context.
+
+![Screen capture of an example interaction against the WCA dataset, using the LLaMA70B model. The user asks "What were the competitions where the 3 fastest times in 2018 happened? The LLM keeps attempting to query the database, but makes poor guesses about which columns go with which table and what their relationships are. After a few iterations of errors, it runs out of context length."](./assets/Struggle_w_WCA.gif)
+
+And here's a GIF of the SQLCoder LLM running on the same user input. I got lucky and captured a correct query/result - the first time I tried with the same prompt, the query would have errored out, but it wasn't run (thanks to the need to tweak the output parsing for SQLCoder that has since been fixed).
+
+![Screen capture of an example interaction against the WCA dataset, using the SQLCoder model. The user asks "What were the competitions where the 3 fastest times in 2018 happened? SQLCoder returns a correct query, but makes some assumptions on the user's behalf."](./assets/SQLCoder_w_WCA.gif)
+
+**📜 Logging Functionality**
+
+I want to be able to keep track of performance of the models, and document how changes in prompts affect the results. The logging functionality tracks every prompt, input parameter, output, and query result when using the app. Logs are appended to `./log/interaction_log.log`, and unique identifiers for each conversation and individual LLM API call are tagged.
+
+I also wanted to have an easy time pulling useful or shareable examples that demonstrate some feature of working with the LLMs in this context, so I added 👍/👎 buttons below the chat output, along with a dialog box to capture annotation about why a given interaction is noteworthy. You can see this demonstrated in the above SQLCoder GIF.
+
+Upcoming work around this will be to scrape the logs into a structured database, then automate publishing some of the interesting examples into a markdown document in this repo.
+
+The logging is only local to wherever the app is running - no data is captured outside of the environment you control. However, since the log is append-only, you are encouraged to commit and PR your logs if you have any interesting examples to share! 
+
 ### 2023-08-28 
 **Added SQLCoder as a model choice** 
 
@@ -112,6 +137,18 @@ This data set is from the [Ladle Furnace Unit](https://www.kaggle.com/datasets/y
 This dataset was selected since working with it may require joins across the tables; however, the joins are fairly easy in most cases since all rows share a key representing the melt batch they are from. One challenging aspect is the mix of grains throughout the dataset. Llama2 has struggled with this in my initial trials. Some tables are one row per batch, while others have time series data. 
 
 The `bulk` and `wire` tables, and their accompanying `_time` tables are particularly confusing for the model to work with, since they are very sparse and are organized by a column for each elemental constituent, with the times in the same location in a separate table. Perhaps better results would be achieved by first converting these tables to a long format for use by the model.
+
+### WCA
+
+The full competition results database from the **World Cube Association**.
+
+This information is based on competition results owned and maintained by the
+World Cube Assocation, published at https://worldcubeassociation.org/results
+as of September  7, 2023.
+
+The inclusion of this dataset was inspired by discussion on [Not So Standard Deviations](https://nssdeviations.com/179-ai-grand-strategy) of this data as a good publicly-available, well-curated dataset with good potential for teaching and developing interesting analyses.
+
+The `make_wca.py` file may be of interest to others who wish to use the WCA data outside of this project. The WCA download helpfully includes a `.sql` file build a mySQL database of the dataset. The `make_wca.py` file uses `sqlglot` to transpile the DDL from this file and load the data in a DuckDB database.
 
 ## Usage on Codespaces
 Start Codespaces on this repository by clicking [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/gregwdata/quack_to_my_data?quickstart=1)

@@ -126,4 +126,149 @@ Assistant: Thought: I now have the information I need to answer the user's quest
 Final Answer: Melt 9 had 117 kg of Bulk 4 added at 2019-05-03 15:47:34.
 
 """,
+'wca':
+"""
+This is the World Cube Association dataset, built to provide members of the speedcubing
+community a practical way to perform analysis on competition information for
+statistical and personal purposes.
+
+Most of the tables should be self-explanatory, but here are a few specific details:
+
+### Countries
+
+`Countries` stores include those from the Wikipedia list of countries at
+http://en.wikipedia.org/wiki/List_of_countries, and may include some countries
+that no longer exist. The ISO2 column should reflect ISO 3166-1 alpha-2
+country codes, for countries that have them. Custom codes may be used in some
+circumstances.
+
+### Scrambles
+
+`Scrambles` stores all scrambles.
+
+For `333mbf`, an attempt is comprised of multiple newline-separated scrambles.
+However, newlines can cause compatibility issues with TSV parsers. Therefore, in
+the TSV version of the data we replace each newline in a `333mbf` scramble with
+the `|` character.
+
+### eligible_country_iso2s_for_championship
+
+`eligible_country_iso2s_for_championship` stores information about which
+citizenships are eligible to win special cross-country championship types.
+
+For example, `greater_china` is a special championship type which contains 4
+`iso2` values: `CN`, `HK`, `MC` and `TW`. This means that any competitor from
+China, Hong Kong, Macau, or Taiwan is eligible to win a competition with
+championship type `greater_china`.
+
+### Results
+
+Please see https://www.worldcubeassociation.org/regulations/#article-9-events
+for information about how results are measured.
+
+Values of the `Results` table can be interpreted as follows:
+
+- The result values are in the following fields `value1`, `value2`, `value3`, `value4`, `value5`,
+  `best`, and `average`.
+- The value `-1` means DNF (Did Not Finish).
+- The value `-2` means DNS (Did Not Start).
+- The value `0` means "no result". For example a result in a `best-of-3` round
+  has a value of `0` for the `value4`, `value5`, and `average` fields.
+- Positive values depend on the event; see the column "format" in Events.
+
+  - Most events have the format "time", where the value represents centiseconds.
+    For example, 8653 means 1 minute and 26.53 seconds.
+  - The format "number" means the value is a raw number, currently only used by
+    "fewest moves" for number of moves.
+    - Fewest moves averages are stored as 100 times the average, rounded.
+  - The format "multi" is for old and new multi-blind, encoding the time as well
+    as the number of cubes attempted and solved. This is a decimal value,
+    which can be interpreted ("decoded") as follows:
+
+        old: 1SSAATTTTT
+             solved        = 99 - SS
+             attempted     = AA
+             timeInSeconds = TTTTT (99999 means unknown)
+        new: 0DDTTTTTMM
+             difference    = 99 - DD
+             timeInSeconds = TTTTT (99999 means unknown)
+             missed        = MM
+             solved        = difference + missed
+             attempted     = solved + missed
+
+    In order to encode data, use the following procedure:
+
+             solved        = # cubes solved
+             attempted     = # cubes attempted
+             missed        = # cubes missed = attempted - solved
+             DD            = 99 - (solved - missed)
+             TTTTT         = solve time in seconds
+             MM            = missed
+
+    Note that this is designed so that a smaller decimal value means a better
+    result. This format does not support more than 99 attempted cubes, or times
+    greater than 99999 seconds (about 27.7 hours).
+
+Example queries:
+User: What were the competitions with the top 5 best times in 2022? 
+
+Assistant: Thought: The user did not specify what kind of event. I will first generate a query to list the events, then I will ask the user which event they are intersted in.
+
+Query:
+```sql
+SELECT e.name
+FROM Events e
+```
+
+Query result:
+name
+2x2x2 Cube
+3x3x3 Cube
+3x3x3 Blindfolded
+...
+Skewb
+Square-1
+
+Assistant: Ask User: Please specify a competition type from the above list so that I can make a valid comparison.
+
+User: 3x3x3 Cube
+
+Assitant: Thought: Now I will construct a query to answer the users question. 
+I will filter on best time > 0 so that only valid results are included.
+I will filter on events with format time to exclude results in other formats.
+And I will LIMIT the results to 5 rows, to only show the top five.
+
+Query:
+```
+SELECT c.name, r.best / 100 as best_time_seconds 
+FROM Competitions c 
+LEFT JOIN Results r on r.competitionId=c.id 
+LEFT JOIN Events e on e.id = r.eventId 
+WHERE e.name = '3x3x3 Cube'
+  AND e.format='time'
+  AND r.best > 0
+  AND c.year = 2022
+ORDER BY r.best
+LIMIT 5;
+```
+
+Query result:
+name, best_time_seconds
+Circle City Summer 2022, 3.63
+Rose City 2022, 3.89
+Rubik's WCA European Championship 2022, 3.97
+Cube4fun in Warsaw 2022, 4.02
+BC Cubing Springback A 2022, 4.09
+
+Assistant: Thought: I now have the information I need to answer the user's question!
+
+Final Answer: The top 5 fastest times for 3x3x3 Cube in 2022 were recorded at:
+Circle City Summer 2022
+Rose City 2022
+Rubik's WCA European Championship 2022
+Cube4fun in Warsaw 2022
+BC Cubing Springback A 2022
+
+Now here is the new question from the User:
+""",
 }
