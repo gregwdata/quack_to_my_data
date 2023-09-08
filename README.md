@@ -5,6 +5,29 @@
 [Instructions for running on Codespaces](https://github.com/gregwdata/quack_to_my_data/tree/main#usage-on-codespaces)
 
 ## 📰 Latest updates
+### 2023-09-08 
+**🧩 Added a Speedcubing data set** 
+
+Inlcuded a new dataset, results database from the World Cube Association. See the description in the [WCA Dataset section below](#WCA).
+
+In initial testing with LLaMA2-70B, it struggles a little bit with the structure of the dataset. This still needs a significant amount of prompt development to make it useful on the WCA data.
+
+Here's a GIF of it struggling to query the right combination of columns and tables (even though the full DDL is in the prompt!), iterating over errors from the queries until it finally runs out of context.
+
+![Screen capture of an example interaction against the WCA dataset, using the LLaMA70B model. The user asks "What were the competitions where the 3 fastest times in 2018 happened? The LLM keeps attempting to query the database, but makes poor guesses about which columns go with which table and what their relationships are. After a few iterations of errors, it runs out of context length."](./assets/Struggle_w_WCA.gif)
+
+And here's a GIF of the SQLCoder LLM running on the same user input. I got lucky and captured a correct query/result - the first time I tried with the same prompt, the query would have errored out, but it wasn't run (thanks to the need to tweak the output parsing for SQLCoder that has since been fixed).
+
+![Screen capture of an example interaction against the WCA dataset, using the SQLCoder model. The user asks "What were the competitions where the 3 fastest times in 2018 happened? SQLCoder returns a correct query, but makes some assumptions on the user's behalf."](./assets/SQLCoder_w_WCA.gif)
+
+**📜 Logging Functionality**
+
+I want to be able to keep track of performance of the models, and document how changes in prompts affect the results. The logging functionality tracks every prompt, input parameter, output, and query result when using the app. Logs are appended to `./log/interaction_log.log`, and unique identifiers for each conversation and individual LLM API call are tagged.
+
+I also wanted to have an easy time pulling useful or shareable examples that demonstrate some feature of working with the LLMs in this context, so I added 👍/👎 buttons below the chat output, along with a dialog box to capture annotation about why a given interaction is noteworthy. You can see this demonstrated in the above SQLCoder GIF.
+
+
+
 ### 2023-08-28 
 **Added SQLCoder as a model choice** 
 

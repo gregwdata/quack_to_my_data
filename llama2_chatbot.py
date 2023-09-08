@@ -51,6 +51,7 @@ REPLICATE_MODEL_ENDPOINT_CL34B = os.environ.get('REPLICATE_MODEL_ENDPOINT_CL34B'
 REPLICATE_MODEL_ENDPOINT_CL13B = os.environ.get('REPLICATE_MODEL_ENDPOINT_CL13B',default='')
 DB_TPCH = r'./db_files/tpch/tpch.duckdb'
 DB_LFU = r'./db_files/lfu/lfu.duckdb'
+DB_WCA = r'./db_files/wca/wca.duckdb'
 
 #Auth0 for auth
 AUTH0_CLIENTID = os.environ.get('AUTH0_CLIENTID', default='')
@@ -166,21 +167,18 @@ def render_app():
         selected_db = st.session_state['db_dropdown']
         if selected_db == 'TPC-H':
             st.session_state['db'] = duckdb.connect(DB_TPCH,read_only=True)
-            # update the prompt based on the selected DB:
-            st.session_state['pre_prompt'], st.session_state['user_pre_prompt'] = generate_preprompt(st.session_state['db'])
-            clear_history()
+        elif selected_db == 'World Cube Association':
+            st.session_state['db'] = duckdb.connect(DB_WCA,read_only=True)
         elif selected_db == 'Ladle Furnace':
             st.session_state['db'] = duckdb.connect(DB_LFU,read_only=True)
-            # update the prompt based on the selected DB:
-            st.session_state['pre_prompt'], st.session_state['user_pre_prompt'] = generate_preprompt(st.session_state['db'])
-            clear_history()
         else: #default to TPC-H if nothing else selected
             st.session_state['db'] = duckdb.connect(DB_TPCH,read_only=True)
-            st.session_state['pre_prompt'], st.session_state['user_pre_prompt'] = generate_preprompt(st.session_state['db'])
-            clear_history()
+        # update the prompt based on the selected DB:
+        st.session_state['pre_prompt'], st.session_state['user_pre_prompt'] = generate_preprompt(st.session_state['db'])
+        clear_history()
 
     #Dropdown menu to select a dataset
-    st.sidebar.selectbox('Choose a Database:', ['TPC-H','Ladle Furnace'], key='db_dropdown', on_change=change_db)
+    st.sidebar.selectbox('Choose a Database:', ['TPC-H','World Cube Association','Ladle Furnace'], key='db_dropdown', on_change=change_db)
 
 
     btn_col1, btn_col2 = st.sidebar.columns(2)
