@@ -113,6 +113,18 @@ This dataset was selected since working with it may require joins across the tab
 
 The `bulk` and `wire` tables, and their accompanying `_time` tables are particularly confusing for the model to work with, since they are very sparse and are organized by a column for each elemental constituent, with the times in the same location in a separate table. Perhaps better results would be achieved by first converting these tables to a long format for use by the model.
 
+### WCA
+
+The full competition results database from the **World Cube Association**.
+
+This information is based on competition results owned and maintained by the
+World Cube Assocation, published at https://worldcubeassociation.org/results
+as of September  7, 2023.
+
+The inclusion of this dataset was inspired by discussion on [Not So Standard Deviations](https://nssdeviations.com/179-ai-grand-strategy) of this data as a good publicly-available, well-curated dataset with good potential for teaching and developing interesting analyses.
+
+The `make_wca.py` file may be of interest to others who wish to use the WCA data outside of this project. The WCA download helpfully includes a `.sql` file build a mySQL database of the dataset. The `make_wca.py` file uses `sqlglot` to transpile the DDL from this file and load the data in a DuckDB database.
+
 ## Usage on Codespaces
 Start Codespaces on this repository by clicking [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/gregwdata/quack_to_my_data?quickstart=1)
 , or you can click on the Green code button on top right of the repo.
