@@ -26,7 +26,9 @@ I want to be able to keep track of performance of the models, and document how c
 
 I also wanted to have an easy time pulling useful or shareable examples that demonstrate some feature of working with the LLMs in this context, so I added 👍/👎 buttons below the chat output, along with a dialog box to capture annotation about why a given interaction is noteworthy. You can see this demonstrated in the above SQLCoder GIF.
 
+Upcoming work around this will be to scrape the logs into a structured database, then automate publishing some of the interesting examples into a markdown document in this repo.
 
+The logging is only local to wherever the app is running - no data is captured outside of the environment you control. However, since the log is append-only, you are encouraged to commit and PR your logs if you have any interesting examples to share! 
 
 ### 2023-08-28 
 **Added SQLCoder as a model choice** 
